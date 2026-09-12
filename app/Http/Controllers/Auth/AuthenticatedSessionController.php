@@ -33,7 +33,9 @@ class AuthenticatedSessionController extends Controller
 
         $request->session()->regenerate();
 
-        return redirect()->intended(route('dashboard', absolute: false));
+        $targetRoute = $request->user()?->user_type === 'lifeguard' ? 'attendance.index' : 'dashboard';
+
+        return redirect()->intended(route($targetRoute, absolute: false));
     }
 
     /**

@@ -17,6 +17,10 @@ return Application::configure(basePath: dirname(__DIR__))
             HandleInertiaRequests::class,
             AddLinkHeadersForPreloadedAssets::class,
         ]);
+
+        $middleware->alias([
+            'user_type' => \App\Http\Middleware\CheckUserType::class,
+        ]);
     })
     ->withExceptions(function (Exceptions $exceptions) {
         //

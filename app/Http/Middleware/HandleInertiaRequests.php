@@ -38,12 +38,17 @@ class HandleInertiaRequests extends Middleware
     {
         [$message, $author] = str(Inspiring::quotes()->random())->explode('-');
 
+        $user = $request->user();
+        if ($user) {
+            $user->loadMissing('employee.position');
+        }
+
         return array_merge(parent::share($request), [
-            ...parent::share($request),
-            'name' => config('app.name'),
+            'name'  => config('app.name'),
             'quote' => ['message' => trim($message), 'author' => trim($author)],
-            'auth' => [
-                'user' => $request->user(),
+            'auth'  => [
+                'user' => $user,
+                'user_type' => $user?->user_type ?? 'guest',
             ],
         ]);
     }
