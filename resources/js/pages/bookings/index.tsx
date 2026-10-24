@@ -651,7 +651,7 @@ export default function BookingsIndex({ bookings = [], ticketTypes = [], package
                                         {availableRates.map((ticket) => (
                                             <option key={ticket.id} value={ticket.id}>
                                                 {ticket.variant_name || ticket.duration_label || ticket.name} - {money(ticket.price!)}{' '}
-                                                {ticket.pricing_basis === 'per_person' ? '/ adult' : '/ bundle'}
+                                                {ticket.pricing_basis === 'per_person' ? '/ person' : '/ bundle'}
                                             </option>
                                         ))}
                                     </select>
@@ -663,7 +663,7 @@ export default function BookingsIndex({ bookings = [], ticketTypes = [], package
                                     <span className="font-medium">{rate.variant_name || rate.duration_label || rate.name}</span>
                                     <span className="text-muted-foreground">
                                         {' '}
-                                        · {money(rate.price)} {rate.pricing_basis === 'per_person' ? 'per adult' : 'per bundle'}
+                                        · {money(rate.price)} {rate.pricing_basis === 'per_person' ? 'per person' : 'per bundle'}
                                     </span>
                                     {category === 'day_tour' && (
                                         <span className="text-muted-foreground mt-1 block text-xs">
