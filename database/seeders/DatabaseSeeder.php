@@ -16,11 +16,10 @@ class DatabaseSeeder extends Seeder
             PositionAndEmployeeSeeder::class,
             TicketTypeSeeder::class,
             VendorAndExpenseCategorySeeder::class,
-            BookingAndWristbandSeeder::class,
-            ExpenseSeeder::class,
-            DailyCashReconciliationSeeder::class,
+            ImportedBookingSeeder::class,
             InventorySeeder::class,
             SoakedInventorySeeder::class,
+            ImportedInventorySeeder::class,
             SoakedStaffSeeder::class,
             AnnouncementSeeder::class,
         ]);

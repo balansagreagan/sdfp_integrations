@@ -16,7 +16,7 @@ class SoakedInventorySeeder extends Seeder
         ];
 
         foreach ($items as [$itemCode, $name, $category, $quantity, $minimum, $unit]) {
-            InventoryItem::updateOrCreate(['item_code' => $itemCode], ['name' => $name, 'inventory_location' => 'soaked_restaurant', 'category' => $category, 'quantity_in_stock' => $quantity, 'min_threshold' => $minimum, 'unit' => $unit, 'unit_cost' => null, 'condition_status' => 'good', 'notes' => 'Count recorded from the SOAKED checklist on September 19, 2026.']);
+            InventoryItem::firstOrCreate(['item_code' => $itemCode], ['name' => $name, 'inventory_location' => 'soaked_restaurant', 'category' => $category, 'quantity_in_stock' => $quantity, 'min_threshold' => $minimum, 'unit' => $unit, 'unit_cost' => null, 'condition_status' => 'good', 'notes' => 'Count recorded from the SOAKED checklist on September 19, 2026.']);
         }
     }
 }

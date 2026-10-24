@@ -4,8 +4,8 @@ namespace Database\Seeders;
 
 use App\Models\AttendanceShift;
 use App\Models\Employee;
-use App\Models\PayrollPeriod;
 use App\Models\PayrollLine;
+use App\Models\PayrollPeriod;
 use App\Models\Position;
 use App\Models\User;
 use Illuminate\Database\Seeder;
@@ -44,14 +44,14 @@ class SoakedStaffSeeder extends Seeder
         $period = PayrollPeriod::findOrCreateForDate('2026-09-19');
 
         foreach ($roster as [$code, $first, $last, $email, $position, $assignment, $rate, $start, $end]) {
-            $user = User::updateOrCreate(['email' => $email], [
+            $user = User::firstOrCreate(['email' => $email], [
                 'name' => "{$first} {$last}",
                 'password' => Hash::make('sdfp2026'),
                 'role' => 'staff',
                 'status' => 'active',
             ]);
 
-            $employee = Employee::updateOrCreate(['employee_code' => $code], [
+            $employee = Employee::firstOrCreate(['employee_code' => $code], [
                 'first_name' => $first,
                 'last_name' => $last,
                 'position_id' => $positions[$position]->id,
@@ -65,17 +65,18 @@ class SoakedStaffSeeder extends Seeder
                 'hired_date' => '2026-09-19',
             ]);
 
-            AttendanceShift::updateOrCreate([
-                'payroll_period_id' => $period->id,
-                'employee_id' => $employee->id,
-                'work_date' => '2026-09-19',
-            ], [
-                'am_status' => $start < '12:00' ? 'present' : 'day_off',
-                'pm_status' => 'present',
-            ]);
+            AttendanceShift::where('employee_id', $employee->id)->whereDate('work_date', '2026-09-19')->firstOr(
+                fn () => AttendanceShift::create([
+                    'payroll_period_id' => $period->id,
+                    'employee_id' => $employee->id,
+                    'work_date' => '2026-09-19',
+                    'am_status' => $start < '12:00' ? 'present' : 'day_off',
+                    'pm_status' => 'present',
+                ])
+            );
 
             $daysWorked = $start < '12:00' ? 1.0 : 0.5;
-            PayrollLine::updateOrCreate([
+            PayrollLine::firstOrCreate([
                 'payroll_period_id' => $period->id,
                 'employee_id' => $employee->id,
             ], [

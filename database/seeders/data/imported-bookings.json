@@ -1,0 +1,307 @@
+[
+    {
+        "marker": "[BOOKING-IMPORT:2026-10-24:LILS-LENDING]",
+        "guest": {
+            "full_name": "Lil’s Lending Shop Inc. / Ana Joy Pausal",
+            "email": null,
+            "contact_number": "09385769730",
+            "address": "Gen. Luna St Estaca, Dipolog",
+            "notes": null
+        },
+        "booking": {
+            "booking_reference": "SDFP261023PV5A2J",
+            "transaction_date": "2026-10-23",
+            "playtime_date": "2026-10-24",
+            "visit_end_date": "2026-10-24",
+            "allocated_time_slot_start": "08:00:00",
+            "allocated_time_slot_end": null,
+            "total_pax": 23,
+            "adult_count": null,
+            "child_count": null,
+            "child_unit_price": null,
+            "package_amount": "18377.00",
+            "pricing_status": "complete",
+            "food_serving_time": "11:00:00",
+            "promotion_reference": null,
+            "child_ages": null,
+            "child_policy": null,
+            "subtotal_amount": "18377.00",
+            "discount_amount": "0.00",
+            "gross_amount": "18377.00",
+            "payment_method": "gcash",
+            "status": "confirmed",
+            "remarks": "[BOOKING-IMPORT:2026-10-24:LILS-LENDING]\nVERY IMPORTANT — FOOD PREPARATION / SEPARATION REQUESTS:\n- Please separate the fish from other seafood for SDA.\n- One halal person: please separate.\n\nCELEBRATION & ACTIVITY REQUEST:\nCelebrating the company's 28th anniversary, with a little program and parlor games. Guest requests a space allocated just for the group; allocation remains a staff action.\n\nPACKAGE:\nWater Fun Day: 23 pax × ₱799 = ₱18,377 total booking. Water rides: 3 (as supplied).\nFood allocation: ₱385 × 23 = ₱8,855 within the stated package total, not an additional charge.\n\nFOOD — SERVE AT 11:00 AM:\n- Cajun Mixed: 3 sets; quoted menu price ₱1,799 per set.\n- Grilled Tuna Panga: 3 sets.\n- Tuna Kinilaw: 3 sets.\n- Rice Platter: 3 sets; quoted menu price ₱120 per set.\n- Pineapple Juice: 5 cups.\nThe meal order is recorded as included so the expressly supplied ₱18,377 booking total is preserved.\n\nDEPOSIT:\n₱5,000 GCash, paid October 23, 2026 (date and method confirmed by user). GCash transaction reference not supplied."
+        },
+        "items": [
+            {
+                "ticket_code": "WATER-FUN",
+                "description": "Water Fun Package",
+                "pricing_basis": "per_person",
+                "guest_type": "all",
+                "guest_age": null,
+                "quantity": 23,
+                "unit_price": "799.00",
+                "line_total": "18377.00"
+            }
+        ],
+        "addons": [
+            {
+                "name": "Cajun Mixed",
+                "quantity": "3.00",
+                "unit": "sets",
+                "unit_price": "0.00",
+                "line_total": "0.00",
+                "is_included": true
+            },
+            {
+                "name": "Grilled Tuna Panga",
+                "quantity": "3.00",
+                "unit": "sets",
+                "unit_price": "0.00",
+                "line_total": "0.00",
+                "is_included": true
+            },
+            {
+                "name": "Tuna Kinilaw",
+                "quantity": "3.00",
+                "unit": "sets",
+                "unit_price": "0.00",
+                "line_total": "0.00",
+                "is_included": true
+            },
+            {
+                "name": "Rice Platter",
+                "quantity": "3.00",
+                "unit": "sets",
+                "unit_price": "0.00",
+                "line_total": "0.00",
+                "is_included": true
+            },
+            {
+                "name": "Pineapple Juice",
+                "quantity": "5.00",
+                "unit": "cups",
+                "unit_price": "0.00",
+                "line_total": "0.00",
+                "is_included": true
+            }
+        ],
+        "payments": [
+            {
+                "paid_on": "2026-10-23",
+                "amount": "5000.00",
+                "payment_method": "gcash",
+                "reference": null
+            }
+        ]
+    },
+    {
+        "marker": "[BOOKING-IMPORT:2026-10-24:ESTERLODIE-PONTANAR]",
+        "guest": {
+            "full_name": "Esterlodie Pontanar",
+            "email": null,
+            "contact_number": "09482013899",
+            "address": "Olingan, Dipolog City",
+            "notes": null
+        },
+        "booking": {
+            "booking_reference": "SDFP26102319V9AQ",
+            "transaction_date": "2026-10-23",
+            "playtime_date": "2026-10-24",
+            "visit_end_date": "2026-10-24",
+            "allocated_time_slot_start": "09:00:00",
+            "allocated_time_slot_end": null,
+            "total_pax": 7,
+            "adult_count": null,
+            "child_count": null,
+            "child_unit_price": null,
+            "package_amount": "0.00",
+            "pricing_status": "pending",
+            "food_serving_time": null,
+            "promotion_reference": "BROCHURE",
+            "child_ages": null,
+            "child_policy": null,
+            "subtotal_amount": "0.00",
+            "discount_amount": "0.00",
+            "gross_amount": "0.00",
+            "payment_method": "cash",
+            "status": "confirmed",
+            "remarks": "[BOOKING-IMPORT:2026-10-24:ESTERLODIE-PONTANAR]\nBROCHURE booking: 7 pax, arrival 9:00 AM on October 24, 2026.\nFood & others: UPON ARRIVAL. Selection and prices have not been supplied; confirm with guest upon arrival.\nBrochure admission uses the existing Free Tickets Brochure rate. Food and other charges are not assumed free; the final total and balance remain pending.\nNo deposit or payment was reported."
+        },
+        "items": [
+            {
+                "ticket_code": "FREE-BROCHURE",
+                "description": "Free Tickets Brochure",
+                "pricing_basis": "per_person",
+                "guest_type": "all",
+                "guest_age": null,
+                "quantity": 7,
+                "unit_price": "0.00",
+                "line_total": "0.00"
+            }
+        ],
+        "addons": [
+            {
+                "name": "Food & others — upon arrival",
+                "quantity": "1.00",
+                "unit": "request",
+                "unit_price": null,
+                "line_total": null,
+                "is_included": false
+            }
+        ],
+        "payments": []
+    },
+    {
+        "marker": "[BOOKING-IMPORT:2026-10-24:GLEN-ABE]",
+        "guest": {
+            "full_name": "Glen Abe",
+            "email": null,
+            "contact_number": "09635484310",
+            "address": "Lower Loboc Oroquieta City",
+            "notes": null
+        },
+        "booking": {
+            "booking_reference": "SDFP261023AK15W8",
+            "transaction_date": "2026-10-23",
+            "playtime_date": "2026-10-24",
+            "visit_end_date": "2026-10-24",
+            "allocated_time_slot_start": "09:00:00",
+            "allocated_time_slot_end": null,
+            "total_pax": 5,
+            "adult_count": null,
+            "child_count": null,
+            "child_unit_price": null,
+            "package_amount": "3995.00",
+            "pricing_status": "complete",
+            "food_serving_time": "11:00:00",
+            "promotion_reference": null,
+            "child_ages": null,
+            "child_policy": null,
+            "subtotal_amount": "3995.00",
+            "discount_amount": "0.00",
+            "gross_amount": "3995.00",
+            "payment_method": "gcash",
+            "status": "confirmed",
+            "remarks": "[BOOKING-IMPORT:2026-10-24:GLEN-ABE]\nWater Fun Package: 5 pax × ₱799 = ₱3,995 total booking.\nArrival 9:00 AM on October 24, 2026 (time confirmed by user).\nFood allocation: ₱385 × 5 = ₱1,925 within the stated package total, not an additional charge.\n\nFOOD — SERVE AT 11:00 AM:\n- Cajun Mixed: 1 set; quoted menu price ₱999.\n- Rice Platter: 1 set; quoted menu price ₱120.\n- Grilled Tuna Panga: 1 set.\n- Mismo Coke: 5.\nThe meal order is recorded as included so the expressly supplied ₱3,995 booking total is preserved.\n\nDEPOSIT:\n₱1,900 paid October 23, 2026, via GCash (method confirmed by user). GCash transaction reference not supplied."
+        },
+        "items": [
+            {
+                "ticket_code": "WATER-FUN",
+                "description": "Water Fun Package",
+                "pricing_basis": "per_person",
+                "guest_type": "all",
+                "guest_age": null,
+                "quantity": 5,
+                "unit_price": "799.00",
+                "line_total": "3995.00"
+            }
+        ],
+        "addons": [
+            {
+                "name": "Cajun Mixed",
+                "quantity": "1.00",
+                "unit": "set",
+                "unit_price": "0.00",
+                "line_total": "0.00",
+                "is_included": true
+            },
+            {
+                "name": "Rice Platter",
+                "quantity": "1.00",
+                "unit": "set",
+                "unit_price": "0.00",
+                "line_total": "0.00",
+                "is_included": true
+            },
+            {
+                "name": "Grilled Tuna Panga",
+                "quantity": "1.00",
+                "unit": "set",
+                "unit_price": "0.00",
+                "line_total": "0.00",
+                "is_included": true
+            },
+            {
+                "name": "Mismo Coke",
+                "quantity": "5.00",
+                "unit": "pcs",
+                "unit_price": "0.00",
+                "line_total": "0.00",
+                "is_included": true
+            }
+        ],
+        "payments": [
+            {
+                "paid_on": "2026-10-23",
+                "amount": "1900.00",
+                "payment_method": "gcash",
+                "reference": null
+            }
+        ]
+    },
+    {
+        "marker": "[BOOKING-IMPORT:2026-10-24:IRENE-OSORIO]",
+        "guest": {
+            "full_name": "Irene Osorio",
+            "email": null,
+            "contact_number": "09924767392",
+            "address": "Cagayan",
+            "notes": null
+        },
+        "booking": {
+            "booking_reference": "SDFP261023N96PIF",
+            "transaction_date": "2026-10-23",
+            "playtime_date": "2026-10-24",
+            "visit_end_date": "2026-10-25",
+            "allocated_time_slot_start": "20:00:00",
+            "allocated_time_slot_end": null,
+            "total_pax": 10,
+            "adult_count": null,
+            "child_count": null,
+            "child_unit_price": null,
+            "package_amount": "16000.00",
+            "pricing_status": "complete",
+            "food_serving_time": null,
+            "promotion_reference": null,
+            "child_ages": null,
+            "child_policy": null,
+            "subtotal_amount": "16000.00",
+            "discount_amount": "0.00",
+            "gross_amount": "16000.00",
+            "payment_method": "gcash",
+            "status": "confirmed",
+            "remarks": "[BOOKING-IMPORT:2026-10-24:IRENE-OSORIO]\nOVERNIGHT RESERVATION — October 24–25, 2026:\n- Check-in October 24 at 8:00 PM.\n- October 24: Pablea (as written in the supplied reservation).\n- October 25: Cqluya (as written in the supplied reservation).\n- Departure time not supplied.\n\nPACKAGE:\n10 pax × ₱1,600 = ₱16,000 total booking.\nNo adult/child breakdown was provided.\n\nFOOD:\n₱385 × 10 = ₱3,850 food allocation, recorded within the stated package total rather than charged a second time.\nMenu selections and food serving time were not supplied; confirm with guest.\n\nPAYMENT:\n₱4,800 deposit paid October 23, 2026 via GCash (date and method confirmed by user). Transaction reference not supplied.\nRemaining balance: ₱11,200, to be paid in full upon arrival/check-in at 8:00 PM on October 24, 2026, as advised by user. This arrival payment is scheduled, not yet received.\nOriginal contact format: (0992) 476 7392."
+        },
+        "items": [
+            {
+                "ticket_code": "OVERNIGHT",
+                "description": "Overnight Package",
+                "pricing_basis": "per_person",
+                "guest_type": "all",
+                "guest_age": null,
+                "quantity": 10,
+                "unit_price": "1600.00",
+                "line_total": "16000.00"
+            }
+        ],
+        "addons": [
+            {
+                "name": "Food allocation — overnight package",
+                "quantity": "10.00",
+                "unit": "pax",
+                "unit_price": "0.00",
+                "line_total": "0.00",
+                "is_included": true
+            }
+        ],
+        "payments": [
+            {
+                "paid_on": "2026-10-23",
+                "amount": "4800.00",
+                "payment_method": "gcash",
+                "reference": null
+            }
+        ]
+    }
+]

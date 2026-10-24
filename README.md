@@ -23,6 +23,10 @@ There is no separate JSON API in this repo. Controllers render Inertia pages und
 
 Register an account, then open `/dashboard`.
 
+## Hosting database setup
+
+After configuring the hosting MySQL database, run `php artisan migrate --force` and `php artisan db:seed --force`. The default seed now includes the four confirmed October bookings and 80 imported SOAKED inventory items, including deposits and final stock corrections. No separate database import is needed for those records. See [hosting seeding instructions](docs/hosting-seeding.md) for details and rerun behavior.
+
 ## App structure
 
 | Layer | Location |
