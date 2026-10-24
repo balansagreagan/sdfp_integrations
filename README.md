@@ -27,6 +27,8 @@ Register an account, then open `/dashboard`.
 
 After configuring the hosting MySQL database, run `php artisan migrate --force` and `php artisan db:seed --force`. The default seed now includes the four confirmed October bookings and 80 imported SOAKED inventory items, including deposits and final stock corrections. No separate database import is needed for those records. See [hosting seeding instructions](docs/hosting-seeding.md) for details and rerun behavior.
 
+Brochure purchases and individual coupon redemption are managed from Bookings. See [brochure instructions](docs/brochures.md) for the PHP 499 sale, existing-card registration, printed coupon limits and hosting update commands.
+
 ## App structure
 
 | Layer | Location |

@@ -2,9 +2,9 @@
 
 namespace App\Models;
 
+use App\Support\Money;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
-use App\Support\Money;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
@@ -14,6 +14,7 @@ class Booking extends Model
 
     protected $fillable = [
         'booking_reference',
+        'brochure_coupon_id',
         'guest_id',
         'transaction_date',
         'playtime_date',
@@ -56,9 +57,15 @@ class Booking extends Model
         return $this->hasMany(BookingPayment::class)->orderBy('paid_on')->orderBy('id');
     }
 
+    public function brochureCoupon(): BelongsTo
+    {
+        return $this->belongsTo(BrochureCoupon::class);
+    }
+
     public function getAmountPaidAttribute(): string
     {
         $paid = $this->relationLoaded('payments') ? $this->payments->sum('amount') : $this->payments()->sum('amount');
+
         return Money::decimal(Money::cents($paid));
     }
 
@@ -74,8 +81,13 @@ class Booking extends Model
 
     public function getPaymentStatusAttribute(): string
     {
-        if ($this->pricing_status === 'pending') return 'pending_quote';
-        if (Money::cents($this->balance_due) === 0) return 'paid';
+        if ($this->pricing_status === 'pending') {
+            return 'pending_quote';
+        }
+        if (Money::cents($this->balance_due) === 0) {
+            return 'paid';
+        }
+
         return Money::cents($this->amount_paid) > 0 ? 'partial' : 'unpaid';
     }
 

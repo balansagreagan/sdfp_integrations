@@ -13,7 +13,7 @@ class TicketType extends Model
     public const RETIRED_CHILD_RATE_CODES = ['KIDDIE-2HR'];
 
     public const CATEGORIES = [
-        'admission' => 'Admission Tickets', 'ticket_bilao' => 'Ticket + Bilao',
+        'admission' => 'Admission Tickets', 'ticket_meal' => 'Ticket + Meal (1 person)', 'ticket_bilao' => 'Ticket + Bilao',
         'ticket_cajun' => 'Ticket + Cajun', 'ticket_stk' => 'Ticket + STK',
         'water_fun' => 'Water Fun Package', 'day_tour' => 'Day Tour Package',
         'overnight' => 'Overnight Package', 'two_days_one_night' => '2D 1N Package',

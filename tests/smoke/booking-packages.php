@@ -15,7 +15,7 @@ function fails(callable $operation, string $field): void {
     throw new RuntimeException('Expected validation rejection for '.$field);
 }
 foreach (glob(dirname(__DIR__, 2).'/database/migrations/*.php') as $migration) {
-    if (str_contains($migration, 'analytical_reporting_views') || str_contains($migration, '2026_10_16_')) continue;
+    if (str_contains($migration, 'analytical_reporting_views') || str_contains($migration, '2026_10_16_') || str_contains($migration, '2026_10_24_')) continue;
     (require $migration)->up();
 }
 $user = App\Models\User::create(['name' => 'Booking Tester', 'email' => 'bookings@example.test', 'password' => 'test-only', 'role' => 'admin']);
@@ -25,6 +25,7 @@ $legacy = App\Models\Booking::create(['booking_reference' => 'LEGACY-BOOKING', '
     'allocated_time_slot_end' => '11:00', 'total_pax' => 1, 'subtotal_amount' => 149, 'gross_amount' => 149,
     'payment_method' => 'cash', 'status' => 'completed', 'recorded_by' => $user->id]);
 foreach (glob(dirname(__DIR__, 2).'/database/migrations/2026_10_16_*.php') as $migration) (require $migration)->up();
+foreach (glob(dirname(__DIR__, 2).'/database/migrations/2026_10_24_*.php') as $migration) (require $migration)->up();
 check($legacy->fresh()->amount_paid === '149.00' && $legacy->fresh()->balance_due === '0.00', 'Legacy fully paid bookings must keep their receipts');
 check($legacy->fresh()->visit_end_date->toDateString() === '2026-10-14', 'Legacy same-day dates must be preserved');
 $controller = app(App\Http\Controllers\BookingController::class);

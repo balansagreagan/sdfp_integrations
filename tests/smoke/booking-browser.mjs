@@ -184,11 +184,15 @@ try {
     await fill('#contact_number', '09129637159');
     await fill('#address', 'Mobod, Oroquieta City');
     await fill('#adult_count', '7');
-    await fill('#playtime_date', '2026-10-11');
-    await fill('#visit_end_date', '2026-10-11');
+    await fill('#playtime_date', '2026-10-18');
+    await fill('#visit_end_date', '2026-10-18');
     await fill('#start_time', '10:00');
     const free = await evaluate(`Array.from(document.querySelector('#ticket_type_id').options).find(option => option.textContent.includes('Free Tickets Brochure')).value`);
     await select('#ticket_type_id', free);
+    const brochureCard = await evaluate(`Array.from(document.querySelector('#booking_brochure_card').options).find(option => option.textContent.includes('LEGACY-BROWSER')).value`);
+    await select('#booking_brochure_card', brochureCard);
+    const freeCoupon = await evaluate(`Array.from(document.querySelector('#booking_brochure_coupon').options).find(option => option.textContent.includes('Free all-day')).value`);
+    await select('#booking_brochure_coupon', freeCoupon);
     await fill('#promotion_reference', 'FREE TICKETS BROCHURE');
     await addFood(0, 'Bilao Boodle 1');
     await addFood(1, 'Tuna Kinilaw');

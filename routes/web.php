@@ -1,20 +1,26 @@
 <?php
 
-use App\Http\Controllers\AnnouncementController;
 use App\Http\Controllers\AddOnItemController;
+use App\Http\Controllers\AnnouncementController;
 use App\Http\Controllers\AttendanceController;
 use App\Http\Controllers\BookingController;
+use App\Http\Controllers\BrochureController;
 use App\Http\Controllers\DailySalesController;
 use App\Http\Controllers\InventoryController;
 use App\Http\Controllers\MaintenanceReportController;
 use App\Http\Controllers\MonitoringController;
-use App\Http\Controllers\SalesReportController;
 use App\Http\Controllers\PackageController;
 use App\Http\Controllers\PayrollController;
 use App\Http\Controllers\ReportController;
 use App\Http\Controllers\RestaurantInventoryController;
+use App\Http\Controllers\SalesReportController;
 use App\Http\Controllers\StaffController;
 use App\Http\Controllers\UserAccessController;
+use App\Models\Booking;
+use App\Models\Employee;
+use App\Models\Expense;
+use App\Models\WristbandAllocation;
+use App\Support\ReceiptLedger;
 use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
 
@@ -49,20 +55,21 @@ Route::middleware(['auth'])->group(function () {
         Route::get('dashboard', function () {
             $today = now()->toDateString();
 
-            $todayBookings = \App\Models\Booking::where('transaction_date', $today)->count();
-            $todayPax = \App\Models\Booking::where('transaction_date', $today)->sum('total_pax');
-            $todaySales = (float) \App\Models\BookingPayment::whereDate('paid_on', $today)->sum('amount');
-            $todayCashExpenses = (float) \App\Models\Expense::where('expense_date', $today)->where('disbursement_method', 'cash_drawer')->sum('amount');
-            $activeLifeguards = \App\Models\Employee::whereHas('position', function ($q) {
+            $todayBookings = Booking::where('transaction_date', $today)->count();
+            $todayPax = Booking::where('transaction_date', $today)->sum('total_pax');
+            $todaySales = ReceiptLedger::total($today);
+            $todayCashSales = ReceiptLedger::total($today, 'cash');
+            $todayCashExpenses = (float) Expense::where('expense_date', $today)->where('disbursement_method', 'cash_drawer')->sum('amount');
+            $activeLifeguards = Employee::whereHas('position', function ($q) {
                 $q->where('title', 'like', '%Lifeguard%');
             })->where('status', 'active')->count();
 
-            $recentBookings = \App\Models\Booking::with(['guest', 'payments', 'wristbandAllocations', 'items.ticketType'])
+            $recentBookings = Booking::with(['guest', 'payments', 'wristbandAllocations', 'items.ticketType'])
                 ->orderBy('id', 'desc')
                 ->limit(5)
                 ->get();
 
-            $latestWristband = \App\Models\WristbandAllocation::orderBy('id', 'desc')->first();
+            $latestWristband = WristbandAllocation::orderBy('id', 'desc')->first();
 
             return Inertia::render('dashboard', [
                 'metrics' => [
@@ -70,7 +77,7 @@ Route::middleware(['auth'])->group(function () {
                     'todayPax' => $todayPax,
                     'todaySales' => $todaySales,
                     'todayCashExpenses' => $todayCashExpenses,
-                    'expectedCoh' => round(1000.00 + $todaySales - $todayCashExpenses, 2),
+                    'expectedCoh' => round(1000.00 + $todayCashSales - $todayCashExpenses, 2),
                     'activeLifeguards' => $activeLifeguards,
                     'currentWristbandRange' => $latestWristband ? "{$latestWristband->start_number}-{$latestWristband->end_number} {$latestWristband->color}" : '4843-4854 BLUE',
                 ],
@@ -81,6 +88,7 @@ Route::middleware(['auth'])->group(function () {
         // Bookings & Wristbands
         Route::get('bookings', [BookingController::class, 'index'])->name('bookings.index');
         Route::post('bookings', [BookingController::class, 'store'])->name('bookings.store');
+        Route::post('bookings/brochures', [BrochureController::class, 'store'])->name('brochures.store');
         Route::post('bookings/{booking}/payments', [BookingController::class, 'recordPayment'])->name('bookings.payments');
         Route::put('bookings/{booking}/addons', [BookingController::class, 'updateAddons'])->name('bookings.addons');
         Route::patch('bookings/{booking}/status', [BookingController::class, 'updateStatus'])->name('bookings.status');

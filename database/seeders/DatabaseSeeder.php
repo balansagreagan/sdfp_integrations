@@ -15,6 +15,7 @@ class DatabaseSeeder extends Seeder
             UserSeeder::class,
             PositionAndEmployeeSeeder::class,
             TicketTypeSeeder::class,
+            BrochureCatalogueSeeder::class,
             VendorAndExpenseCategorySeeder::class,
             ImportedBookingSeeder::class,
             InventorySeeder::class,

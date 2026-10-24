@@ -1,4 +1,5 @@
 import BookingAddonFields, { addonTotal, type AddonDraft } from '@/components/booking-addon-fields';
+import BrochureSales, { type BrochureOffers, type BrochureRecord } from '@/components/brochure-sales';
 import ChildAgeFields, { childQuote } from '@/components/child-age-fields';
 import InputError from '@/components/input-error';
 import { Badge } from '@/components/ui/badge';
@@ -8,6 +9,7 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import AppLayout from '@/layouts/app-layout';
+import { brochureDiscount } from '@/lib/brochure-pricing';
 import type { AddOnItem, BreadcrumbItem, ChildPolicy, TicketType } from '@/types';
 import { Head, router, useForm } from '@inertiajs/react';
 import { CalendarDays, CreditCard, Plus, Search } from 'lucide-react';
@@ -53,6 +55,10 @@ interface Booking {
     child_policy: ChildPolicy | null;
     food_serving_time: string | null;
     promotion_reference: string | null;
+    brochure_coupon_id: number | null;
+    brochure_coupon: { id: number; type: string; number: number; state: string; brochure: { card_number: string } } | null;
+    subtotal_amount: string;
+    discount_amount: string;
     pricing_status: string;
     known_balance_due: string;
     gross_amount: string;
@@ -92,6 +98,8 @@ interface Props {
     addonItems: AddOnItem[];
     childPolicies: Record<string, ChildPolicy>;
     today: string;
+    brochures: BrochureRecord[];
+    brochureOffers: BrochureOffers;
     stats: {
         totalBookingsToday: number;
         checkedInCount: number;
@@ -102,11 +110,22 @@ interface Props {
     };
 }
 
-export default function BookingsIndex({ bookings = [], ticketTypes = [], packageCategories, addonItems, childPolicies, today, stats }: Props) {
+export default function BookingsIndex({
+    bookings = [],
+    ticketTypes = [],
+    packageCategories,
+    addonItems,
+    childPolicies,
+    today,
+    stats,
+    brochures = [],
+    brochureOffers = {},
+}: Props) {
     const [search, setSearch] = useState('');
     const [statusFilter, setStatusFilter] = useState('all');
     const [creating, setCreating] = useState(false);
     const [category, setCategory] = useState('admission');
+    const [brochureCardId, setBrochureCardId] = useState('');
     const [selectedId, setSelectedId] = useState<number | null>(null);
     const [editingFood, setEditingFood] = useState(false);
     const selected = bookings.find((booking) => booking.id === selectedId);
@@ -139,10 +158,15 @@ export default function BookingsIndex({ bookings = [], ticketTypes = [], package
         promotion_reference: '',
         food_serving_time: '',
         addons: [] as AddonDraft[],
+        brochure_coupon_id: '',
+        coupon_presented: false as boolean,
     });
     const payment = useForm({ amount: '', paid_on: today, payment_method: 'cash', reference: '' });
     const food = useForm({ child_unit_price: '', child_ages: [] as string[], food_serving_time: '', addons: [] as AddonDraft[] });
     const rate = ticketTypes.find((ticket) => String(ticket.id) === form.data.ticket_type_id);
+    const brochure = brochures.find((item) => String(item.id) === brochureCardId);
+    const coupon = brochure?.coupons.find((item) => String(item.id) === form.data.brochure_coupon_id);
+    const usesCouponPricing = !!coupon || rate?.code === 'FREE-BROCHURE';
     const eligible = (ticket: TicketType, pax: number) =>
         ticket.category === category && pax >= ticket.min_pax && (!ticket.max_pax || pax <= ticket.max_pax);
     const availableRates = ticketTypes.filter((ticket) => eligible(ticket, form.data.quantity));
@@ -150,7 +174,8 @@ export default function BookingsIndex({ bookings = [], ticketTypes = [], package
     const packageChoiceLabel =
         category === 'admission' ? 'Ticket / visit duration' : rate?.pricing_basis === 'per_booking' ? 'Bundle size' : 'Package option';
     const units = rate?.pricing_basis === 'per_booking' ? Number(form.data.package_quantity) : Number(form.data.quantity);
-    const childPolicy = rate?.child_pricing === 'age_based' && rate.pricing_basis === 'per_person' ? childPolicies[rate.category] : null;
+    const childPolicy =
+        !usesCouponPricing && rate?.child_pricing === 'age_based' && rate.pricing_basis === 'per_person' ? childPolicies[rate.category] : null;
     const ageQuotes = childPolicy ? form.data.child_ages.map((age) => childQuote(childPolicy, age, rate!.price!)) : [];
     const effectiveChildPrice =
         form.data.child_unit_price !== ''
@@ -161,6 +186,7 @@ export default function BookingsIndex({ bookings = [], ticketTypes = [], package
                 ? rate.child_price
                 : null;
     const childPending =
+        !usesCouponPricing &&
         Number(form.data.child_count) > 0 &&
         rate?.pricing_basis === 'per_person' &&
         (childPolicy ? ageQuotes.some((quote) => quote.price === null) : effectiveChildPrice == null);
@@ -169,10 +195,14 @@ export default function BookingsIndex({ bookings = [], ticketTypes = [], package
         : Math.round(Number(effectiveChildPrice ?? 0) * 100) * Number(form.data.child_count);
     const baseTotal = rate
         ? rate.pricing_basis === 'per_person'
-            ? (Math.round(Number(rate.price) * 100) * Number(form.data.adult_count) + childTotalCents) / 100
+            ? usesCouponPricing
+                ? (Math.round(Number(rate.price) * 100) * form.data.quantity) / 100
+                : (Math.round(Number(rate.price) * 100) * Number(form.data.adult_count) + childTotalCents) / 100
             : (Math.round(Number(rate.price) * 100) * units) / 100
         : 0;
-    const total = baseTotal + addonTotal(form.data.addons);
+    const couponDiscount = brochureDiscount(coupon?.type, brochureOffers, rate, form.data.quantity, form.data.addons, addonItems, baseTotal);
+    const subtotal = baseTotal + addonTotal(form.data.addons);
+    const total = subtotal - couponDiscount;
     const pricingPending = childPending || form.data.addons.some((row) => !row.is_included && row.unit_price === '');
     const deposit = Number(form.data.payment_amount || 0);
     const insufficientBundles = rate?.pricing_basis === 'per_booking' && form.data.quantity > units * Number(rate.included_pax);
@@ -225,14 +255,61 @@ export default function BookingsIndex({ bookings = [], ticketTypes = [], package
     };
     const submit = (event: FormEvent) => {
         event.preventDefault();
+        form.transform((data) => ({
+            ...data,
+            adult_count: usesCouponPricing ? null : data.adult_count,
+            child_count: usesCouponPricing ? null : data.child_count,
+            child_ages: usesCouponPricing ? [] : data.child_ages,
+        }));
         form.post(route('bookings.store'), {
             preserveScroll: true,
             onSuccess: () => {
                 setCreating(false);
                 form.reset();
                 setCategory('admission');
+                setBrochureCardId('');
             },
         });
+    };
+    const chooseCoupon = (id: string) => {
+        const selectedCoupon = brochure?.coupons.find((item) => String(item.id) === id);
+        const type = selectedCoupon?.type;
+        const targetCategory =
+            type === 'free_all_day' || type === 'bogo_all_day'
+                ? 'admission'
+                : type === 'tour'
+                  ? 'day_tour'
+                  : type === 'two_days_one_night'
+                    ? 'two_days_one_night'
+                    : type === 'ticket_meal'
+                      ? 'ticket_meal'
+                      : category;
+        const next =
+            type === 'free_all_day'
+                ? ticketTypes.find((item) => item.code === 'FREE-BROCHURE')
+                : type === 'bogo_all_day'
+                  ? ticketTypes.find((item) => item.code === 'ALL-DAY')
+                  : ticketTypes.find(
+                        (item) =>
+                            item.category === targetCategory &&
+                            form.data.quantity >= item.min_pax &&
+                            (!item.max_pax || form.data.quantity <= item.max_pax),
+                    );
+        setCategory(targetCategory);
+        form.setData((data) => ({
+            ...data,
+            brochure_coupon_id: id,
+            coupon_presented: false,
+            ticket_type_id: next ? String(next.id) : data.ticket_type_id,
+            visit_end_date:
+                targetCategory === 'two_days_one_night' && data.visit_end_date <= data.playtime_date
+                    ? nextDate(data.playtime_date)
+                    : data.visit_end_date,
+        }));
+    };
+    const changeGuestQuantity = (pax: number) => {
+        const next = rate && eligible(rate, pax) ? rate : ticketTypes.find((item) => eligible(item, pax));
+        form.setData((data) => ({ ...data, quantity: pax, ticket_type_id: next ? String(next.id) : data.ticket_type_id }));
     };
     const submitPayment = (event: FormEvent) => {
         event.preventDefault();
@@ -259,8 +336,11 @@ export default function BookingsIndex({ bookings = [], ticketTypes = [], package
             })),
         });
     };
-    const changeStatus = (booking: Booking, status: string) =>
-        router.patch(route('bookings.status', booking.id), { status }, { preserveScroll: true });
+    const changeStatus = (booking: Booking, status: string) => {
+        const needsCoupon = !!booking.brochure_coupon && booking.brochure_coupon.state !== 'used' && ['checked_in', 'completed'].includes(status);
+        if (needsCoupon && !window.confirm('Has the guest presented the physical brochure and this unused coupon? No brochure, no discount.')) return;
+        router.patch(route('bookings.status', booking.id), { status, coupon_presented: needsCoupon }, { preserveScroll: true });
+    };
     const dates = (booking: Booking) =>
         dateLabel(booking.playtime_date) +
         (booking.visit_end_date && booking.visit_end_date.slice(0, 10) !== booking.playtime_date.slice(0, 10)
@@ -293,6 +373,7 @@ export default function BookingsIndex({ bookings = [], ticketTypes = [], package
                         <Plus className="size-4" /> New booking
                     </Button>
                 </div>
+                <BrochureSales brochures={brochures} offers={brochureOffers} today={today} />
                 <div className="grid min-w-0 grid-cols-2 gap-3 lg:grid-cols-4">
                     {[
                         ['Bookings recorded today', stats.totalBookingsToday],
@@ -500,6 +581,70 @@ export default function BookingsIndex({ bookings = [], ticketTypes = [], package
                         </DialogDescription>
                     </DialogHeader>
                     <form onSubmit={submit} className="space-y-5">
+                        <section className="space-y-3 rounded-xl border p-4">
+                            <h3 className="font-semibold">Use a brochure coupon (optional)</h3>
+                            <p className="text-muted-foreground text-xs">
+                                Already bought the ₱499 brochure? Select its card and an unused coupon. There is no new brochure charge. To sell or
+                                register a card, use “Sell / register brochure” on the booking page.
+                            </p>
+                            <div className="space-y-1.5">
+                                <Label htmlFor="booking_brochure_card">Printed card number</Label>
+                                <select
+                                    id="booking_brochure_card"
+                                    className={selectClass}
+                                    value={brochureCardId}
+                                    onChange={(event) => {
+                                        setBrochureCardId(event.target.value);
+                                        form.setData('brochure_coupon_id', '');
+                                        form.setData('coupon_presented', false);
+                                    }}
+                                >
+                                    <option value="">No brochure selected</option>
+                                    {brochures.map((item) => (
+                                        <option key={item.id} value={item.id} disabled={item.expires_on.slice(0, 10) < today}>
+                                            {item.card_number} — {item.guest.full_name}
+                                            {item.expires_on.slice(0, 10) < today ? ' (expired)' : ''}
+                                        </option>
+                                    ))}
+                                </select>
+                            </div>
+                            {brochure && (
+                                <div className="space-y-1.5">
+                                    <Label htmlFor="booking_brochure_coupon">Coupon</Label>
+                                    <select
+                                        id="booking_brochure_coupon"
+                                        className={selectClass}
+                                        value={form.data.brochure_coupon_id}
+                                        onChange={(event) => chooseCoupon(event.target.value)}
+                                    >
+                                        <option value="">Choose an unused coupon</option>
+                                        {brochure.coupons.map((item) => (
+                                            <option key={item.id} value={item.id} disabled={item.state !== 'unused'}>
+                                                {brochureOffers[item.type]?.label} #{item.number} — {item.state}
+                                            </option>
+                                        ))}
+                                    </select>
+                                </div>
+                            )}
+                            <InputError message={form.errors.brochure_coupon_id} />
+                            {coupon && (
+                                <>
+                                    <p className="text-xs text-amber-700">
+                                        Book at least 2 days in advance. One coupon per transaction; cannot combine with other discounts or
+                                        promotions. Card is transferable. The free all-day coupon is one-time use for up to 7 people; unused places do
+                                        not carry over.
+                                    </p>
+                                    <label className="flex items-center gap-2 text-sm">
+                                        <input
+                                            type="checkbox"
+                                            checked={form.data.coupon_presented}
+                                            onChange={(event) => form.setData('coupon_presented', event.target.checked)}
+                                        />
+                                        Physical brochure and coupon presented (required when checking in)
+                                    </label>
+                                </>
+                            )}
+                        </section>
                         <div className="grid gap-3 sm:grid-cols-2">
                             <div className="space-y-1.5">
                                 <Label htmlFor="guest_name">Name</Label>
@@ -547,6 +692,8 @@ export default function BookingsIndex({ bookings = [], ticketTypes = [], package
                                 <Input
                                     id="playtime_date"
                                     type="date"
+                                    min={coupon ? nextDate(nextDate(today)) : undefined}
+                                    max={coupon ? '2028-08-31' : undefined}
                                     required
                                     value={form.data.playtime_date}
                                     onChange={(event) => {
@@ -607,16 +754,21 @@ export default function BookingsIndex({ bookings = [], ticketTypes = [], package
                                 <Label htmlFor="quantity">Total guests</Label>
                                 <Input
                                     id="quantity"
-                                    readOnly
-                                    aria-readonly="true"
+                                    aria-readonly={!usesCouponPricing}
                                     type="number"
                                     min="1"
                                     max="10000"
                                     required
                                     value={form.data.quantity}
+                                    readOnly={!usesCouponPricing}
+                                    onChange={(event) => changeGuestQuantity(Number(event.target.value))}
                                 />
                                 <InputError message={form.errors.quantity} />
-                                <p className="text-muted-foreground text-xs">Counted automatically from adults and children below.</p>
+                                <p className="text-muted-foreground text-xs">
+                                    {usesCouponPricing
+                                        ? 'Enter the number of people. Brochure offers use per-person pricing without an adult/child breakdown.'
+                                        : 'Counted automatically from adults and children below.'}
+                                </p>
                             </div>
                             <div className="space-y-1.5">
                                 <Label htmlFor="package_category">Package</Label>
@@ -706,65 +858,67 @@ export default function BookingsIndex({ bookings = [], ticketTypes = [], package
                                 )}
                             </div>
                         )}
-                        <div className="space-y-3 rounded-xl border p-4">
-                            <h3 className="font-semibold">Adults & children</h3>
-                            <p className="text-muted-foreground text-xs">
-                                Enter the guest counts and each child’s age. Charges and total guests are calculated automatically.
-                            </p>
-                            <div className="grid grid-cols-2 gap-3">
-                                <div className="space-y-1.5">
-                                    <Label htmlFor="adult_count">Adults</Label>
-                                    <Input
-                                        id="adult_count"
-                                        required
-                                        type="number"
-                                        min="0"
-                                        max="10000"
-                                        value={form.data.adult_count}
-                                        onChange={(event) => changeBreakdown('adult_count', event.target.value)}
-                                    />
-                                    <InputError message={form.errors.adult_count} />
+                        {!usesCouponPricing && (
+                            <div className="space-y-3 rounded-xl border p-4">
+                                <h3 className="font-semibold">Adults & children</h3>
+                                <p className="text-muted-foreground text-xs">
+                                    Enter the guest counts and each child’s age. Charges and total guests are calculated automatically.
+                                </p>
+                                <div className="grid grid-cols-2 gap-3">
+                                    <div className="space-y-1.5">
+                                        <Label htmlFor="adult_count">Adults</Label>
+                                        <Input
+                                            id="adult_count"
+                                            required
+                                            type="number"
+                                            min="0"
+                                            max="10000"
+                                            value={form.data.adult_count}
+                                            onChange={(event) => changeBreakdown('adult_count', event.target.value)}
+                                        />
+                                        <InputError message={form.errors.adult_count} />
+                                    </div>
+                                    <div className="space-y-1.5">
+                                        <Label htmlFor="child_count">Children</Label>
+                                        <Input
+                                            id="child_count"
+                                            required
+                                            type="number"
+                                            min="0"
+                                            max="10000"
+                                            value={form.data.child_count}
+                                            onChange={(event) => changeBreakdown('child_count', event.target.value)}
+                                        />
+                                        <InputError message={form.errors.child_count} />
+                                    </div>
                                 </div>
-                                <div className="space-y-1.5">
-                                    <Label htmlFor="child_count">Children</Label>
-                                    <Input
-                                        id="child_count"
-                                        required
-                                        type="number"
-                                        min="0"
-                                        max="10000"
-                                        value={form.data.child_count}
-                                        onChange={(event) => changeBreakdown('child_count', event.target.value)}
+                                {Number(form.data.child_count) > 0 && childPolicy && (
+                                    <ChildAgeFields
+                                        prefix="new"
+                                        policy={childPolicy}
+                                        ages={form.data.child_ages}
+                                        regularPrice={rate!.price!}
+                                        onChange={(ages) => form.setData('child_ages', ages)}
+                                        errors={form.errors}
                                     />
-                                    <InputError message={form.errors.child_count} />
-                                </div>
+                                )}
+                                {Number(form.data.child_count) > 0 && rate?.pricing_basis === 'per_person' && !childPolicy && (
+                                    <div className="space-y-1.5">
+                                        <p className="text-muted-foreground text-xs">
+                                            {rate.child_pricing === 'same'
+                                                ? `Package policy: same rate as adults (${money(rate.price)}).`
+                                                : rate.child_pricing === 'custom'
+                                                  ? `Package child rate: ${money(rate.child_price)}.`
+                                                  : 'Child pricing for this package is still to confirm. Set the policy in Packages & Rates.'}
+                                        </p>
+                                        <InputError message={form.errors.child_unit_price} />
+                                    </div>
+                                )}
+                                {Number(form.data.child_count) > 0 && rate?.pricing_basis === 'per_booking' && (
+                                    <p className="text-muted-foreground text-xs">Children count toward the number of guests covered by the bundle.</p>
+                                )}
                             </div>
-                            {Number(form.data.child_count) > 0 && childPolicy && (
-                                <ChildAgeFields
-                                    prefix="new"
-                                    policy={childPolicy}
-                                    ages={form.data.child_ages}
-                                    regularPrice={rate!.price!}
-                                    onChange={(ages) => form.setData('child_ages', ages)}
-                                    errors={form.errors}
-                                />
-                            )}
-                            {Number(form.data.child_count) > 0 && rate?.pricing_basis === 'per_person' && !childPolicy && (
-                                <div className="space-y-1.5">
-                                    <p className="text-muted-foreground text-xs">
-                                        {rate.child_pricing === 'same'
-                                            ? `Package policy: same rate as adults (${money(rate.price)}).`
-                                            : rate.child_pricing === 'custom'
-                                              ? `Package child rate: ${money(rate.child_price)}.`
-                                              : 'Child pricing for this package is still to confirm. Set the policy in Packages & Rates.'}
-                                    </p>
-                                    <InputError message={form.errors.child_unit_price} />
-                                </div>
-                            )}
-                            {Number(form.data.child_count) > 0 && rate?.pricing_basis === 'per_booking' && (
-                                <p className="text-muted-foreground text-xs">Children count toward the number of guests covered by the bundle.</p>
-                            )}
-                        </div>
+                        )}
                         <div className="space-y-1.5">
                             <Label htmlFor="promotion_reference">Promotion / brochure reference (optional)</Label>
                             <Input
@@ -807,7 +961,15 @@ export default function BookingsIndex({ bookings = [], ticketTypes = [], package
                         </div>
                         <div className="bg-muted/30 rounded-xl border p-4 [&>div]:flex-wrap">
                             <h3 className="mb-3 font-semibold">Automatic charge breakdown</h3>
-                            {rate?.pricing_basis === 'per_person' && (
+                            {usesCouponPricing && (
+                                <div className="mb-2 flex justify-between gap-2 text-sm">
+                                    <span>
+                                        {form.data.quantity} persons × {money(rate?.price ?? 0)}
+                                    </span>
+                                    <strong>{money(baseTotal)}</strong>
+                                </div>
+                            )}
+                            {!usesCouponPricing && rate?.pricing_basis === 'per_person' && (
                                 <>
                                     <div className="mb-2 flex justify-between gap-2 text-sm">
                                         <span>
@@ -853,11 +1015,19 @@ export default function BookingsIndex({ bookings = [], ticketTypes = [], package
                                     <strong>{money(addonTotal(form.data.addons))}</strong>
                                 </div>
                             )}
+                            {coupon && (
+                                <div className="mb-2 flex justify-between gap-2 text-sm text-emerald-700">
+                                    <span>{brochureOffers[coupon.type]?.label}</span>
+                                    <strong>−{money(couponDiscount)}</strong>
+                                </div>
+                            )}
                             <div className="flex justify-between gap-2">
                                 <span>
-                                    {rate?.pricing_basis === 'per_person'
-                                        ? `${form.data.adult_count} adults + ${form.data.child_count} children`
-                                        : `${money(rate?.price ?? 0)} x ${units || 0} ${rate?.pricing_basis === 'per_booking' ? 'bundle(s)' : 'person(s)'}`}
+                                    {usesCouponPricing
+                                        ? `${form.data.quantity} persons`
+                                        : rate?.pricing_basis === 'per_person'
+                                          ? `${form.data.adult_count} adults + ${form.data.child_count} children`
+                                          : `${money(rate?.price ?? 0)} x ${units || 0} ${rate?.pricing_basis === 'per_booking' ? 'bundle(s)' : 'person(s)'}`}
                                 </span>
                                 <strong>
                                     {pricingPending ? 'Known charges' : 'Total booking'}: {money(total)}
@@ -1084,6 +1254,26 @@ export default function BookingsIndex({ bookings = [], ticketTypes = [], package
                                         </p>
                                     </div>
                                 ))}
+                                {selected.brochure_coupon && (
+                                    <div className="rounded-lg border p-3 text-sm">
+                                        <p className="font-medium">Card {selected.brochure_coupon.brochure.card_number}</p>
+                                        <p>
+                                            {brochureOffers[selected.brochure_coupon.type]?.label} #{selected.brochure_coupon.number}
+                                        </p>
+                                        <p className="text-muted-foreground">
+                                            {selected.status === 'cancelled' && selected.brochure_coupon.state !== 'used'
+                                                ? 'Reservation cancelled — unused coupon released'
+                                                : selected.brochure_coupon.state}{' '}
+                                            · Brochure purchase is recorded separately.
+                                        </p>
+                                    </div>
+                                )}
+                                {Number(selected.discount_amount) > 0 && (
+                                    <div className="flex justify-between text-sm text-emerald-700">
+                                        <span>Coupon discount</span>
+                                        <strong>−{money(selected.discount_amount)}</strong>
+                                    </div>
+                                )}
                                 <div className="flex justify-between border-t pt-2">
                                     <span>{selected.pricing_status === 'pending' ? 'Known charges' : 'Total booking'}</span>
                                     <strong>{money(selected.gross_amount)}</strong>

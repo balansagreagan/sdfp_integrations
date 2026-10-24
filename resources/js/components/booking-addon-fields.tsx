@@ -30,7 +30,7 @@ export default function BookingAddonFields({
     return (
         <section className="space-y-3 rounded-xl border p-4">
             <div className="flex flex-wrap items-center justify-between gap-2">
-                <h3 className="font-semibold">Food & add-ons</h3>
+                <h3 className="font-semibold">Food, services & add-ons</h3>
                 <Button
                     type="button"
                     size="sm"
@@ -43,7 +43,8 @@ export default function BookingAddonFields({
                 </Button>
             </div>
             <p className="text-muted-foreground text-xs">
-                Add extra food separately from the package. Leave an unknown price blank to confirm later, or explicitly mark an item as included.
+                Add food, water rides, rooms or drink bundles separately from the package. Leave an unknown price blank to confirm later, or
+                explicitly mark an item as included.
             </p>
             <InputError message={errors.addons} />
             {rows.map((row, index) => (

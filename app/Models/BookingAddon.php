@@ -6,7 +6,7 @@ use Illuminate\Database\Eloquent\Model;
 
 class BookingAddon extends Model
 {
-    protected $fillable = ['booking_id', 'addon_item_id', 'name', 'quantity', 'unit', 'unit_price', 'line_total', 'is_included'];
+    protected $fillable = ['booking_id', 'addon_item_id', 'name', 'quantity', 'unit', 'unit_price', 'line_total', 'is_included', 'brochure_scope'];
 
     protected function casts(): array
     {

@@ -137,6 +137,7 @@ export interface AddOnItem {
     unit: string;
     price: string | null;
     is_active: boolean;
+    brochure_scope?: 'other' | 'restaurant' | 'water_rides' | 'hotel' | 'drink_bundle';
 }
 
 export interface ChildPolicy {
