@@ -4,9 +4,11 @@ namespace App\Http\Controllers;
 
 use App\Models\AttendanceShift;
 use App\Models\Employee;
+use App\Models\OperatingDayClosure;
 use App\Models\PayrollLine;
 use App\Models\PayrollPeriod;
 use Carbon\Carbon;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
@@ -19,6 +21,9 @@ class AttendanceController extends Controller
      */
     public function index(Request $request): Response
     {
+        abort_unless(in_array($request->user()->user_type, ['admin', 'staff'], true), 403);
+        $request->validate(['work_area' => ['nullable', 'in:park,soaked']]);
+        $workArea = $request->query('work_area', 'park');
         $selectedDateParam = $request->query('date');
         try {
             $parsedDate = $selectedDateParam ? Carbon::parse($selectedDateParam) : Carbon::today();
@@ -30,12 +35,9 @@ class AttendanceController extends Controller
         $user = $request->user();
         $isAdmin = $user->role === 'admin';
         $currentPeriod = PayrollPeriod::findOrCreateForDate($selectedDate);
+        $isClosed = OperatingDayClosure::whereDate('work_date', $selectedDate)->exists();
 
-        $employeesQuery = Employee::with('position')->where('status', 'active')->orderBy('last_name');
-
-        if (! $isAdmin) {
-            $employeesQuery->where('user_id', $user->id);
-        }
+        $employeesQuery = Employee::with('position')->where('status', 'active')->where('work_area', $workArea)->orderBy('last_name');
 
         $employees = $employeesQuery->get();
 
@@ -43,7 +45,7 @@ class AttendanceController extends Controller
         $todayShifts = [];
         $shifts = AttendanceShift::where('payroll_period_id', $currentPeriod->id)
             ->whereDate('work_date', $selectedDate)
-            ->when(! $isAdmin, fn ($q) => $q->whereIn('employee_id', $employees->pluck('id')))
+            ->whereIn('employee_id', $employees->pluck('id'))
             ->get();
 
         foreach ($shifts as $shift) {
@@ -58,6 +60,7 @@ class AttendanceController extends Controller
         $startOfWeek = $parsedDate->copy()->startOfWeek(); // Monday
         $endOfWeek = $parsedDate->copy()->endOfWeek();     // Sunday
         $weekShifts = AttendanceShift::where('payroll_period_id', $currentPeriod->id)
+            ->whereIn('employee_id', $employees->pluck('id'))
             ->whereDate('work_date', '>=', $startOfWeek->toDateString())
             ->whereDate('work_date', '<=', $endOfWeek->toDateString())
             ->get();
@@ -114,6 +117,7 @@ class AttendanceController extends Controller
             'currentPeriodId' => $currentPeriod->id,
             'periodCode' => $currentPeriod->period_code,
             'periodStatus' => $currentPeriod->status,
+            'isClosed' => $isClosed,
             'adjustments' => $adjustments,
             'today' => $selectedDate,
             'actualToday' => Carbon::today()->toDateString(),
@@ -124,73 +128,116 @@ class AttendanceController extends Controller
             'nextDayDate' => $parsedDate->copy()->addDay()->toDateString(),
             'weekLabel' => $startOfWeek->format('M d') . ' – ' . $endOfWeek->format('M d, Y'),
             'isAdmin' => $isAdmin,
-            'currentEmployee' => $isAdmin ? null : $employees->first(),
+            'workArea' => $workArea,
         ]);
     }
 
-    /**
-     * Record a time-in or time-out for an employee.
-     */
+    /** Record manual AM/PM attendance and recalculate the employee's payroll. */
     public function store(Request $request): RedirectResponse
     {
-        $user = $request->user();
-        $isAdmin = $user->role === 'admin';
-
+        abort_unless(in_array($request->user()->user_type, ['admin', 'staff'], true), 403, 'Only staff and administrators can record attendance.');
         $validated = $request->validate([
             'employee_id' => ['required', 'exists:employees,id'],
-            'shift_slot' => ['required', 'string', 'in:am,pm'],
-            'status' => ['nullable', 'string', 'in:present,absent,day_off,timed_out'],
-            'action' => ['nullable', 'string', 'in:time_in,time_out,toggle'],
-            'work_date' => ['nullable', 'date'],
+            'work_area' => ['required', 'in:park,soaked'],
+            'shift_slot' => ['required', 'in:am,pm'],
+            'status' => ['required', 'in:present,absent,day_off,unrecorded'],
+            'action' => ['prohibited'],
+            'work_date' => ['required', 'date_format:Y-m-d'],
+        ]);
+        $employee = Employee::findOrFail($validated['employee_id']);
+        abort_unless($employee->status === 'active' && $employee->work_area === $validated['work_area'], 422, 'Select an active employee from the selected business.');
+        $period = PayrollPeriod::findOrCreateForDate($validated['work_date']);
+
+        if ($period->status === 'approved') {
+            return back()->with('error', 'This payroll period is approved. Unlock it before changing attendance.');
+        }
+        if (OperatingDayClosure::whereDate('work_date', $validated['work_date'])->exists()) {
+            return back()->with('error', 'Operations are closed for this date. Re-open the date before recording attendance.');
+        }
+
+        DB::transaction(function () use ($request, $validated, $period) {
+            $shift = AttendanceShift::where('payroll_period_id', $period->id)
+                ->where('employee_id', $validated['employee_id'])
+                ->whereDate('work_date', $validated['work_date'])
+                ->first() ?? new AttendanceShift([
+                'payroll_period_id' => $period->id,
+                'employee_id' => $validated['employee_id'],
+                'work_date' => $validated['work_date'],
+            ]);
+            $shift->{$validated['shift_slot'].'_status'} = $validated['status'];
+            $shift->recorded_by = $request->user()->id;
+            $shift->save();
+            $this->recalculatePayrollLine($period->id, (int) $validated['employee_id']);
+        });
+
+        return back()->with('success', 'Manual attendance saved. Payroll updated.');
+    }
+
+    /** Close or re-open a date. Closing also removes any attendance already recorded that day. */
+    public function toggleOperatingDay(Request $request): RedirectResponse
+    {
+        abort_unless($request->user()->role === 'admin', 403, 'Only administrators can change operating status.');
+
+        $validated = $request->validate([
+            'work_date' => ['required', 'date'],
+            'is_closed' => ['required', 'boolean'],
         ]);
 
-        $ownEmployee = Employee::where('user_id', $user->id)->first();
+        $period = PayrollPeriod::findOrCreateForDate($validated['work_date']);
+        if ($period->status === 'approved') {
+            return redirect()->back()->with('error', 'This payroll period is approved. Unlock it before changing operating status.');
+        }
 
-        if (! $isAdmin) {
-            if (! $ownEmployee || (int) $validated['employee_id'] !== (int) $ownEmployee->id) {
-                abort(403, 'You can only time in or time out for your own record.');
+        if ($validated['is_closed']) {
+            OperatingDayClosure::updateOrCreate(
+                ['work_date' => $validated['work_date']],
+                ['closed_by' => $request->user()->id]
+            );
+            $cleared = $this->resetDateAttendance($period->id, $validated['work_date']);
+            return redirect()->back()->with('success', "Operations closed. {$cleared} attendance record(s) were cleared and payroll was recalculated.");
+        }
+
+        OperatingDayClosure::whereDate('work_date', $validated['work_date'])->delete();
+        return redirect()->back()->with('success', 'Operations opened. Staff can record manual attendance for this date.');
+    }
+
+    /** Clear all time-in/out records for a selected date and recalculate affected payroll lines. */
+    public function resetDate(Request $request): RedirectResponse
+    {
+        abort_unless($request->user()->role === 'admin', 403, 'Only administrators can reset attendance.');
+
+        $validated = $request->validate([
+            'work_date' => ['required', 'date_format:Y-m-d'],
+            'work_area' => ['required', 'in:park,soaked'],
+        ]);
+
+        $period = PayrollPeriod::findOrCreateForDate($validated['work_date']);
+        if ($period->status === 'approved') {
+            return redirect()->back()->with('error', 'This payroll period is approved. Unlock it before resetting attendance.');
+        }
+
+        $cleared = $this->resetDateAttendance($period->id, $validated['work_date'], $validated['work_area']);
+        $business = $validated['work_area'] === 'soaked' ? 'Soaked' : 'SDFP';
+        $dateLabel = Carbon::parse($validated['work_date'])->format('M d, Y');
+
+        return redirect()->back()->with('success', "{$cleared} {$business} attendance record(s) reset for {$dateLabel}. Payroll recalculated. Other dates, allowances and deductions were kept.");
+    }
+
+    private function resetDateAttendance(int $periodId, string $workDate, ?string $workArea = null): int
+    {
+        return DB::transaction(function () use ($periodId, $workDate, $workArea) {
+            $query = AttendanceShift::where('payroll_period_id', $periodId)
+                ->whereDate('work_date', $workDate)
+                ->when($workArea !== null, fn ($q) => $q->whereHas('employee', fn ($employees) => $employees->where('work_area', $workArea)));
+            $employeeIds = (clone $query)->pluck('employee_id')->unique()->values();
+            $cleared = $query->delete();
+
+            foreach ($employeeIds as $employeeId) {
+                $this->recalculatePayrollLine($periodId, (int) $employeeId);
             }
-        }
 
-        $action = $validated['action'] ?? 'toggle';
-        $status = $validated['status'] ?? 'present';
-
-        if (! $isAdmin) {
-            $action = in_array($action, ['time_in', 'time_out'], true) ? $action : 'time_in';
-            $status = $action === 'time_out' ? 'timed_out' : 'present';
-        }
-
-        $workDate = $validated['work_date'] ?? Carbon::today()->toDateString();
-        $currentPeriod = PayrollPeriod::findOrCreateForDate($workDate);
-
-        $shift = AttendanceShift::firstOrNew([
-            'payroll_period_id' => $currentPeriod->id,
-            'employee_id' => $validated['employee_id'],
-            'work_date' => $workDate,
-        ]);
-
-        $currentSlotStatus = $validated['shift_slot'] === 'am' ? $shift->am_status : $shift->pm_status;
-
-        if (! $isAdmin && $action === 'time_out' && $currentSlotStatus !== 'present') {
-            return redirect()->back()->with('error', 'Time in first before timing out.');
-        }
-
-        if ($validated['shift_slot'] === 'am') {
-            $shift->am_status = $status;
-        } else {
-            $shift->pm_status = $status;
-        }
-
-        $shift->recorded_by = $user->id;
-        $shift->save();
-
-        $this->recalculatePayrollLine($currentPeriod->id, $validated['employee_id']);
-
-        $message = $action === 'time_out'
-            ? 'Timed out successfully.'
-            : ($action === 'time_in' ? 'Timed in successfully.' : 'Attendance recorded successfully.');
-
-        return redirect()->back()->with('success', $message);
+            return $cleared;
+        });
     }
 
     private function isWorked(?string $status): bool

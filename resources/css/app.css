@@ -156,3 +156,49 @@
         @apply bg-background text-foreground;
     }
 }
+
+/* Phone safeguards shared by every Inertia page. Individual data tables keep
+   their horizontal scroll container, rather than forcing the whole page wide. */
+@media (max-width: 639px) {
+    html,
+    body {
+        max-width: 100%;
+        overflow-x: hidden;
+    }
+
+    input,
+    select,
+    textarea {
+        font-size: 16px;
+    }
+
+    [role='dialog'] {
+        max-width: calc(100vw - 1rem);
+        max-height: calc(100vh - 1rem);
+    }
+
+    .overflow-x-auto {
+        -webkit-overflow-scrolling: touch;
+    }
+}
+
+
+/* Notifications remain visible above forms and support the application's theme. */
+.swal2-container.app-alert-container {
+    z-index: 10000;
+    pointer-events: auto;
+}
+.swal2-container.app-alert-container .swal2-popup {
+    background: var(--background);
+    color: var(--foreground);
+    font-family: inherit;
+    border: 1px solid var(--border);
+    border-radius: 1rem;
+}
+.swal2-popup.app-notification {
+    width: min(28rem, calc(100vw - 2rem));
+}
+.swal2-popup .swal2-html-container {
+    white-space: pre-line;
+    overflow-wrap: anywhere;
+}

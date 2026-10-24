@@ -12,6 +12,10 @@ class BookingItem extends Model
 
     protected $fillable = [
         'booking_id',
+        'description',
+        'pricing_basis',
+        'guest_type',
+        'guest_age',
         'ticket_type_id',
         'quantity',
         'unit_price',
@@ -22,6 +26,7 @@ class BookingItem extends Model
     {
         return [
             'quantity' => 'integer',
+            'guest_age' => 'integer',
             'unit_price' => 'decimal:2',
             'line_total' => 'decimal:2',
         ];

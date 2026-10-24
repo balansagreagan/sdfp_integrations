@@ -1,0 +1,156 @@
+{
+  "name": "SDFP - Website Error Monitoring",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "sdfp-error-alert",
+        "authentication": "headerAuth",
+        "responseMode": "onReceived",
+        "options": {}
+      },
+      "id": "webhook",
+      "name": "Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        240,
+        300
+      ],
+      "webhookId": "sdfp-error-alert"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "valid-report-expression",
+              "leftValue": "={{ ['source','error_type','occurred_at'].every(key => typeof $json.body?.[key] === 'string' && $json.body[key].trim().length > 0 && $json.body[key].length <= 200) && typeof $json.body?.severity === 'string' && ['low','medium','high','critical'].includes($json.body.severity.toLowerCase()) && /^\\d{4}-\\d{2}-\\d{2}T/.test($json.body.occurred_at) && Number.isFinite(Date.parse($json.body.occurred_at)) }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "validate-error-report",
+      "name": "Validate Error Report",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        480,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "serious-severity-expression",
+              "leftValue": "={{ ['high','critical'].includes(String($json.body.severity).toLowerCase()) }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "serious-error?",
+      "name": "Serious Error?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        720,
+        220
+      ]
+    },
+    {
+      "parameters": {
+        "resource": "message",
+        "operation": "sendMessage",
+        "chatId": "REPLACE_WITH_SDFP_IT_CHAT_ID",
+        "text": "={{ ['SDFP website error (' + $json.body.severity.toUpperCase() + ')', 'Type: ' + $json.body.error_type, 'Source: ' + $json.body.source, 'Environment: ' + (typeof $json.body.environment === 'string' ? $json.body.environment.slice(0, 100) : 'unspecified'), 'Route: ' + (typeof $json.body.route === 'string' ? $json.body.route.slice(0, 200) : 'unspecified'), 'Occurred at: ' + $json.body.occurred_at].map(line => line.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')).join('\\n') }}",
+        "additionalFields": {
+          "appendAttribution": false,
+          "parse_mode": "HTML"
+        }
+      },
+      "id": "telegram-alert",
+      "name": "Telegram Alert",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        960,
+        140
+      ]
+    }
+  ],
+  "connections": {
+    "Webhook": {
+      "main": [
+        [
+          {
+            "node": "Validate Error Report",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Validate Error Report": {
+      "main": [
+        [
+          {
+            "node": "Serious Error?",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        []
+      ]
+    },
+    "Serious Error?": {
+      "main": [
+        [
+          {
+            "node": "Telegram Alert",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        []
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "meta": {
+    "templateCredsSetupCompleted": false
+  },
+  "tags": []
+}

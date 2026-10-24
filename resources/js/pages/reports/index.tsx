@@ -108,7 +108,7 @@ export default function ReportsIndex({
                                 <div>
                                     <CardTitle className="text-base font-bold">view_daily_sales_and_wristbands</CardTitle>
                                     <p className="text-xs text-neutral-500">
-                                        Sales intake, guest counts, pass package types, and assigned wristband ranges.
+                                        Booking charges, guest counts and wristband ranges. Payments are tracked separately; pending prices are flagged.
                                     </p>
                                 </div>
                                 <span className="text-xs font-mono text-neutral-400">{salesReport.length} Records</span>
@@ -125,7 +125,7 @@ export default function ReportsIndex({
                                         <th className="px-5 py-3">Assigned Wristband Range</th>
                                         <th className="px-5 py-3">Mode</th>
                                         <th className="px-5 py-3">Encoded By</th>
-                                        <th className="px-5 py-3 text-right">Gross Sales</th>
+                                        <th className="px-5 py-3 text-right">Booking charges</th>
                                     </tr>
                                 </thead>
                                 <tbody className="divide-y divide-neutral-200/70 dark:divide-neutral-800">
@@ -149,7 +149,7 @@ export default function ReportsIndex({
                                             <td className="px-5 py-3.5 uppercase text-[11px] font-bold text-neutral-500">{row.payment_method}</td>
                                             <td className="px-5 py-3.5 text-xs text-neutral-500">{row.encoded_by}</td>
                                             <td className="px-5 py-3.5 text-right font-bold text-neutral-900 dark:text-neutral-100">
-                                                ₱{Number(row.gross_amount).toFixed(2)}
+                                                {row.pricing_status === 'pending' ? <><span className="text-amber-600">To confirm</span><small className="block">₱{Number(row.gross_amount).toFixed(2)} known</small></> : `₱${Number(row.gross_amount).toFixed(2)}`}
                                             </td>
                                         </tr>
                                     ))}

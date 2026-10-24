@@ -103,7 +103,7 @@ export default function Dashboard({ metrics, recentBookings = [] }: DashboardPro
                     <Card className="border-neutral-200/70 bg-gradient-to-br from-emerald-50/40 to-white dark:border-neutral-800 dark:from-emerald-950/20 dark:to-neutral-900 shadow-xs">
                         <CardHeader className="flex flex-row items-center justify-between pb-2">
                             <CardTitle className="text-xs font-semibold uppercase tracking-wider text-neutral-500">
-                                Gross Sales Today
+                                Payments Received Today
                             </CardTitle>
                             <Banknote className="size-4.5 text-emerald-600 dark:text-emerald-400" />
                         </CardHeader>
@@ -200,7 +200,7 @@ export default function Dashboard({ metrics, recentBookings = [] }: DashboardPro
                                             <th className="px-5 py-3">Guest Name</th>
                                             <th className="px-5 py-3">Pax & Time</th>
                                             <th className="px-5 py-3">Wristbands</th>
-                                            <th className="px-5 py-3 text-right">Amount</th>
+                                            <th className="px-5 py-3 text-right">Booking total</th>
                                         </tr>
                                     </thead>
                                     <tbody className="divide-y divide-neutral-200/70 dark:divide-neutral-800">
@@ -260,7 +260,7 @@ export default function Dashboard({ metrics, recentBookings = [] }: DashboardPro
                                                         )}
                                                     </td>
                                                     <td className="px-5 py-3.5 text-right font-semibold">
-                                                        ₱{Number(b.gross_amount).toFixed(2)}
+                                                        {b.pricing_status === 'pending' ? <><span className="text-amber-600">To confirm</span><small className="block">₱{Number(b.gross_amount).toFixed(2)} known</small></> : `₱${Number(b.gross_amount).toFixed(2)}`}
                                                     </td>
                                                 </tr>
                                             ))

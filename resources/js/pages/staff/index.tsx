@@ -1,3 +1,4 @@
+import { confirmAction } from '@/lib/notifications';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -55,9 +56,11 @@ interface StaffIndexProps {
         avgDailyRate: number;
     };
     isAdmin: boolean;
+    workArea?: 'park' | 'soaked';
 }
 
-export default function StaffIndex({ employees = [], positions = [], stats, isAdmin = true }: StaffIndexProps) {
+export default function StaffIndex({ employees = [], positions = [], stats, isAdmin = true, workArea = 'park' }: StaffIndexProps) {
+    const isSoakedStaff = workArea === 'soaked';
     const [searchQuery, setSearchQuery] = useState('');
     const [selectedPosition, setSelectedPosition] = useState('all');
     const [isAddModalOpen, setIsAddModalOpen] = useState(false);
@@ -87,7 +90,7 @@ export default function StaffIndex({ employees = [], positions = [], stats, isAd
         position_id: positions[0]?.id ? String(positions[0].id) : '',
         daily_rate: positions[0]?.base_daily_rate ? String(positions[0].base_daily_rate) : '400.00',
         hired_date: new Date().toISOString().split('T')[0],
-        create_account: false,
+        create_account: false as boolean,
         email: '',
         password: '',
         role: 'staff',
@@ -101,6 +104,10 @@ export default function StaffIndex({ employees = [], positions = [], stats, isAd
         position_id: '',
         daily_rate: '',
         status: 'active',
+        create_account: false as boolean,
+        email: '',
+        password: '',
+        role: 'staff',
     });
 
     const handleOpenEdit = (emp: Employee) => {
@@ -112,6 +119,10 @@ export default function StaffIndex({ employees = [], positions = [], stats, isAd
             position_id: String(emp.position_id),
             daily_rate: String(emp.daily_rate),
             status: emp.status,
+            create_account: false,
+            email: '',
+            password: '',
+            role: 'staff',
         });
     };
 
@@ -125,7 +136,7 @@ export default function StaffIndex({ employees = [], positions = [], stats, isAd
 
     const submitCreate = (e: React.FormEvent) => {
         e.preventDefault();
-        createForm.post(route('staff.store'), {
+        createForm.post(route(isSoakedStaff ? 'soaked-staff.store' : 'staff.store'), {
             onSuccess: () => {
                 setIsAddModalOpen(false);
                 createForm.reset();
@@ -144,6 +155,13 @@ export default function StaffIndex({ employees = [], positions = [], stats, isAd
         });
     };
 
+    const deleteEmployee = async (emp: Employee) => {
+        const name = `${emp.first_name} ${emp.last_name}`;
+        if (!await confirmAction(`Delete ${name}? This cannot be undone. Employees with attendance or payroll history cannot be deleted.`, { title: "Delete employee?", confirmText: "Delete", danger: true })) return;
+
+        editForm.delete(route('staff.destroy', emp.id), { preserveScroll: true });
+    };
+
     return (
         <AppLayout breadcrumbs={breadcrumbs}>
             <Head title="Staff Management · SDFP" />
@@ -154,7 +172,7 @@ export default function StaffIndex({ employees = [], positions = [], stats, isAd
                     <div>
                         <div className="flex items-center gap-2">
                             <h1 className="text-2xl font-bold tracking-tight text-neutral-900 dark:text-neutral-50 sm:text-3xl">
-                                Staff & Operations Team
+                                {isSoakedStaff ? 'SOAKED Staff Management' : 'Staff & Operations Team'}
                             </h1>
                             {isAdmin && (
                                 <Badge className="bg-amber-500/15 text-amber-600 dark:text-amber-400 ring-1 ring-amber-500/30">
@@ -163,7 +181,7 @@ export default function StaffIndex({ employees = [], positions = [], stats, isAd
                             )}
                         </div>
                         <p className="mt-1 text-sm text-neutral-500 dark:text-neutral-400">
-                            Manage lifeguard credentials, front desk cashiers, utility crew, and weekly compensation rates.
+                            {isSoakedStaff ? 'Manage SOAKED restaurant crew, assignments, and weekly compensation rates.' : 'Manage lifeguard credentials, front desk cashiers, utility crew, and weekly compensation rates.'}
                         </p>
                     </div>
 
@@ -173,7 +191,7 @@ export default function StaffIndex({ employees = [], positions = [], stats, isAd
                             className="bg-sky-600 hover:bg-sky-500 text-white shadow-md shadow-sky-600/20 flex items-center gap-2 self-start sm:self-auto"
                         >
                             <UserPlus className="size-4" />
-                            <span>Enroll Staff Member</span>
+                            <span>{isSoakedStaff ? 'Enroll SOAKED Staff' : 'Enroll Staff Member'}</span>
                         </Button>
                     )}
                 </div>
@@ -359,6 +377,14 @@ export default function StaffIndex({ employees = [], positions = [], stats, isAd
                                                         {isLifeguard && <LifeBuoy className="size-3" />}
                                                         {emp.position?.title ?? 'Staff'}
                                                     </span>
+                                                    {isSoakedStaff && emp.soaked_assignment && (
+                                                        <div className="mt-1.5 text-[11px] leading-tight text-neutral-500">
+                                                            <div>{emp.soaked_assignment}</div>
+                                                            {emp.scheduled_start_time && emp.scheduled_end_time && (
+                                                                <div className="font-medium text-sky-600">Schedule: {emp.scheduled_start_time}–{emp.scheduled_end_time}</div>
+                                                            )}
+                                                        </div>
+                                                    )}
                                                 </td>
 
                                                 {/* Daily Rate */}
@@ -419,15 +445,25 @@ export default function StaffIndex({ employees = [], positions = [], stats, isAd
                                                 {/* Actions */}
                                                 {isAdmin && (
                                                     <td className="px-6 py-4 text-right">
-                                                        <Button
-                                                            variant="outline"
-                                                            size="sm"
-                                                            onClick={() => handleOpenEdit(emp)}
-                                                            className="h-8 px-2.5 text-xs font-medium"
-                                                        >
-                                                            <Edit2 className="mr-1.5 size-3" />
-                                                            Edit
-                                                        </Button>
+                                                        <div className="inline-flex items-center gap-2">
+                                                            <Button
+                                                                variant="outline"
+                                                                size="sm"
+                                                                onClick={() => handleOpenEdit(emp)}
+                                                                className="h-8 px-2.5 text-xs font-medium"
+                                                            >
+                                                                <Edit2 className="mr-1.5 size-3" />
+                                                                Edit
+                                                            </Button>
+                                                            <Button
+                                                                variant="outline"
+                                                                size="sm"
+                                                                onClick={() => deleteEmployee(emp)}
+                                                                className="h-8 border-rose-200 px-2.5 text-xs font-medium text-rose-600 hover:bg-rose-50 hover:text-rose-700 dark:border-rose-900/70 dark:text-rose-400 dark:hover:bg-rose-950/40"
+                                                            >
+                                                                Delete
+                                                            </Button>
+                                                        </div>
                                                     </td>
                                                 )}
                                             </tr>
@@ -599,7 +635,7 @@ export default function StaffIndex({ employees = [], positions = [], stats, isAd
 
             {/* Edit Staff Modal */}
             <Dialog open={!!editingEmployee} onOpenChange={(open) => !open && setEditingEmployee(null)}>
-                <DialogContent className="sm:max-w-md">
+            <DialogContent className="sm:max-w-lg">
                     <DialogHeader>
                         <DialogTitle className="text-lg font-bold">
                             Edit Staff: {editingEmployee?.first_name} {editingEmployee?.last_name}
@@ -682,6 +718,65 @@ export default function StaffIndex({ employees = [], positions = [], stats, isAd
                                 <option value="terminated">Terminated</option>
                             </select>
                         </div>
+
+                        {!editingEmployee?.user && (
+                            <div className="border-t border-neutral-200/80 pt-3 space-y-3 dark:border-neutral-800">
+                                <div className="flex items-center justify-between">
+                                    <div>
+                                        <div className="text-sm font-semibold text-neutral-900 dark:text-neutral-100">Grant Web Login</div>
+                                        <p className="text-xs text-neutral-500">Create a portal account for this existing employee.</p>
+                                    </div>
+                                    <input
+                                        id="edit_create_account"
+                                        type="checkbox"
+                                        checked={editForm.data.create_account}
+                                        onChange={(e) => editForm.setData('create_account', e.target.checked)}
+                                        className="size-4 rounded border-neutral-300 text-sky-600 focus:ring-sky-500"
+                                    />
+                                </div>
+
+                                {editForm.data.create_account && (
+                                    <div className="space-y-3 rounded-lg border border-neutral-200/60 bg-neutral-50 p-3 dark:border-neutral-700/60 dark:bg-neutral-800/60">
+                                        <div className="space-y-1.5">
+                                            <Label htmlFor="edit_account_email">Login Email</Label>
+                                            <Input
+                                                id="edit_account_email"
+                                                type="email"
+                                                required={editForm.data.create_account}
+                                                value={editForm.data.email}
+                                                onChange={(e) => editForm.setData('email', e.target.value)}
+                                                placeholder="employee@sdfp.ph"
+                                            />
+                                        </div>
+                                        <div className="grid grid-cols-2 gap-3">
+                                            <div className="space-y-1.5">
+                                                <Label htmlFor="edit_account_password">Initial Password</Label>
+                                                <Input
+                                                    id="edit_account_password"
+                                                    type="password"
+                                                    required={editForm.data.create_account}
+                                                    value={editForm.data.password}
+                                                    onChange={(e) => editForm.setData('password', e.target.value)}
+                                                    placeholder="At least 6 characters"
+                                                />
+                                            </div>
+                                            <div className="space-y-1.5">
+                                                <Label htmlFor="edit_account_role">Assigned Role</Label>
+                                                <select
+                                                    id="edit_account_role"
+                                                    className="w-full rounded-md border border-neutral-300 bg-white px-3 py-2 text-sm shadow-xs dark:border-neutral-700 dark:bg-neutral-800"
+                                                    value={editForm.data.role}
+                                                    onChange={(e) => editForm.setData('role', e.target.value)}
+                                                >
+                                                    <option value="staff">Staff</option>
+                                                    <option value="admin">Admin</option>
+                                                </select>
+                                            </div>
+                                        </div>
+                                    </div>
+                                )}
+                            </div>
+                        )}
 
                         <DialogFooter className="pt-2">
                             <Button

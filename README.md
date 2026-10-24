@@ -52,3 +52,7 @@ Auth and settings (profile, password, appearance) come from the Laravel React st
 
 - Do not commit `.env`.
 - Flutter / mobile API access would use Sanctum tokens against this same User model; the website keeps cookie sessions.
+
+## Website monitoring
+
+See [SDFP n8n setup notes](SDFP-n8n-workflows/SDFP-n8n-setup-notes.txt) for importing the workflows, setting the webhook credentials, and testing Telegram alerts. Laravel provides `/monitor-health` and opt-in exception reporting through `N8N_ERROR_*` environment settings.

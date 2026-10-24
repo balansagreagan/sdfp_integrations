@@ -46,6 +46,6 @@ class RegisteredUserController extends Controller
 
         Auth::login($user);
 
-        return to_route('dashboard');
+        return redirect($user->landingPath())->with('success', 'Your account has been created. You are now logged in.');
     }
 }

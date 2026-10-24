@@ -1,3 +1,4 @@
+import { confirmAction } from '@/lib/notifications';
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -39,8 +40,8 @@ const breadcrumbs: BreadcrumbItem[] = [
 ];
 
 interface ShiftCell {
-    am_status: "present" | "absent" | "day_off" | null;
-    pm_status: "present" | "absent" | "day_off" | null;
+    am_status: "present" | "absent" | "day_off" | "unrecorded" | "timed_out" | null;
+    pm_status: "present" | "absent" | "day_off" | "unrecorded" | "timed_out" | null;
     ot_hours: number;
 }
 
@@ -62,6 +63,7 @@ interface PayrollIndexProps {
     employees: any[];
     shiftsGrid: Record<number, Record<string, ShiftCell>>;
     periodDates: string[];
+    closedDates?: string[];
     stats: {
         totalGross: number;
         totalAdditions: number;
@@ -70,6 +72,7 @@ interface PayrollIndexProps {
         totalOtHours: number;
     };
     isAdmin: boolean;
+    workArea?: 'park' | 'soaked';
 }
 
 const DAY_ABBR: Record<string, string> = {
@@ -94,13 +97,13 @@ function formatDateLabel(dStr: string | null | undefined): string {
     return clean;
 }
 
-function ShiftPill({ status }: { status: string | null | undefined }) {
+function ShiftPill({ status, isClosed = false }: { status: string | null | undefined; isClosed?: boolean }) {
     const isPresent = status === "present" || status === "timed_out";
     const isAbsent = status === "absent";
     return (
         <td className={`text-center text-[11px] font-bold border border-neutral-200/70 dark:border-neutral-700 w-8 min-w-[28px] py-1.5 transition-colors
-            ${isPresent ? "bg-emerald-500 text-white" : isAbsent ? "bg-rose-500 text-white" : "bg-neutral-100/70 dark:bg-neutral-800/50 text-neutral-300 dark:text-neutral-600"}`}>
-            {isPresent ? "4" : isAbsent ? "0" : ""}
+            ${isClosed ? "bg-orange-400 text-orange-950" : isPresent ? "bg-emerald-500 text-white" : isAbsent ? "bg-rose-500 text-white" : "bg-neutral-100/70 dark:bg-neutral-800/50 text-neutral-300 dark:text-neutral-600"}`}>
+            {isClosed ? "Closed" : isPresent ? "4" : isAbsent ? "0" : "-"}
         </td>
     );
 }
@@ -114,9 +117,13 @@ export default function PayrollIndex({
     employees = [],
     shiftsGrid = {},
     periodDates = [],
+    closedDates = [],
     stats,
     isAdmin = false,
+    workArea = 'park',
 }: PayrollIndexProps) {
+    const isSoakedPayroll = workArea === 'soaked';
+    const payrollIndexRoute = isSoakedPayroll ? 'soaked-payroll.index' : 'payroll.index';
     const [mobileView, setMobileView] = useState<"cards" | "table">("cards");
     const [selectedLineForDeduction, setSelectedLineForDeduction] = useState<any | null>(null);
     const [selectedLineForAddition, setSelectedLineForAddition] = useState<any | null>(null);
@@ -150,16 +157,16 @@ export default function PayrollIndex({
         e.preventDefault();
         deductionForm.post(route("payroll.deduction"), { onSuccess: () => { setSelectedLineForDeduction(null); deductionForm.reset(); } });
     };
-    const handleAdditionSubmit = (e: React.FormEvent) => {
+    const handleAdditionSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         additionForm.post(route("payroll.addition"), { onSuccess: () => { setSelectedLineForAddition(null); additionForm.reset(); } });
     };
-    const handleApprove = () => {
-        if (!confirm(`Approve payroll period ${period.period_code}? This locks compensation.`)) return;
+    const handleApprove = async () => {
+        if (!await confirmAction(`Approve payroll period ${period.period_code}? This locks compensation.`)) return;
         approveForm.post(route("payroll.approve", period.id));
     };
-    const handleUnapprove = () => {
-        if (!confirm(`Unlock payroll period ${period.period_code}? This will re-open it for adjustments.`)) return;
+    const handleUnapprove = async () => {
+        if (!await confirmAction(`Unlock payroll period ${period.period_code}? This will re-open it for adjustments.`)) return;
         approveForm.post(route("payroll.unapprove", period.id));
     };
 
@@ -177,15 +184,32 @@ export default function PayrollIndex({
 
     return (
         <AppLayout breadcrumbs={breadcrumbs}>
+            <style>{`
+                @page {
+                    size: landscape;
+                    margin: 8mm;
+                }
+
+                @media print {
+                    html, body {
+                        width: 100%;
+                        height: auto;
+                    }
+
+                    table {
+                        width: 100%;
+                    }
+                }
+            `}</style>
             <Head title="Weekly Payroll & Shift Timesheets · SDFP" />
-            <div className="flex flex-col gap-5 p-4 md:p-6 max-w-full mx-auto w-full">
+            <div className="flex min-w-0 flex-col gap-5 p-4 md:p-6 max-w-full mx-auto w-full">
 
                 {/* Header */}
-                <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                    <div>
+                <div className="print:hidden flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                    <div className="min-w-0">
                         <div className="flex items-center gap-2 flex-wrap">
-                            <h1 className="text-2xl font-bold tracking-tight text-neutral-900 dark:text-neutral-50 sm:text-3xl">Weekly Payroll</h1>
-                            <Badge className={approved ? "bg-emerald-500/15 text-emerald-600 ring-1 ring-emerald-500/30" : "bg-amber-500/15 text-amber-600 ring-1 ring-amber-500/30"}>
+                            <h1 className="text-2xl font-bold tracking-tight text-neutral-900 dark:text-neutral-50 sm:text-3xl">{isSoakedPayroll ? 'SOAKED Weekly Payroll' : 'Weekly Payroll'}</h1>
+                            <Badge className={`max-w-full break-words whitespace-normal ${approved ? "bg-emerald-500/15 text-emerald-600 ring-1 ring-emerald-500/30" : "bg-amber-500/15 text-amber-600 ring-1 ring-amber-500/30"}`}>
                                 {period?.period_code || "PR-2026-W37"} · {period?.status ? period.status.toUpperCase() : "DRAFT"}
                             </Badge>
                         </div>
@@ -193,12 +217,12 @@ export default function PayrollIndex({
                             Cycle: {formatDateLabel(period?.start_date)} to {formatDateLabel(period?.end_date)} · AM/PM tracking per day
                         </p>
                     </div>
-                    <div className="flex items-center gap-2">
-                        <Button variant="outline" size="sm" onClick={() => window.print()} className="flex items-center gap-2 text-xs">
+                    <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:items-center">
+                        <Button variant="outline" size="sm" onClick={() => window.print()} className="flex items-center justify-center gap-2 text-xs">
                             <Printer className="size-3.5" /> Print Register
                         </Button>
                         {isAdmin && !approved && (
-                            <Button onClick={handleApprove} disabled={approveForm.processing} className="bg-emerald-600 hover:bg-emerald-500 text-white flex items-center gap-2 text-xs">
+                            <Button onClick={handleApprove} disabled={approveForm.processing} className="bg-emerald-600 hover:bg-emerald-500 text-white flex items-center justify-center gap-2 text-xs">
                                 <ShieldCheck className="size-4" /> Approve Payroll
                             </Button>
                         )}
@@ -218,12 +242,12 @@ export default function PayrollIndex({
                 </div>
 
                 {/* Period & Week Navigation Bar */}
-                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 bg-white dark:bg-neutral-900 border border-neutral-200/80 dark:border-neutral-800 rounded-xl p-3 sm:p-4 shadow-xs">
-                    <div className="flex items-center gap-2 flex-wrap">
+                <div className="print:hidden flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 bg-white dark:bg-neutral-900 border border-neutral-200/80 dark:border-neutral-800 rounded-xl p-3 sm:p-4 shadow-xs">
+                    <div className="grid grid-cols-2 gap-2 sm:flex sm:items-center sm:flex-wrap">
                         <Button
                             variant="outline"
                             size="sm"
-                            onClick={() => prevWeekDate && router.get(route("payroll.index"), { date: prevWeekDate })}
+                            onClick={() => prevWeekDate && router.get(route(payrollIndexRoute), { date: prevWeekDate })}
                             className="flex items-center gap-1.5 text-xs h-8 cursor-pointer"
                             title="Previous Week"
                         >
@@ -232,7 +256,7 @@ export default function PayrollIndex({
                         <Button
                             variant="outline"
                             size="sm"
-                            onClick={() => nextWeekDate && router.get(route("payroll.index"), { date: nextWeekDate })}
+                            onClick={() => nextWeekDate && router.get(route(payrollIndexRoute), { date: nextWeekDate })}
                             className="flex items-center gap-1.5 text-xs h-8 cursor-pointer"
                             title="Next Week"
                         >
@@ -242,24 +266,24 @@ export default function PayrollIndex({
                             <Button
                                 variant="ghost"
                                 size="sm"
-                                onClick={() => router.get(route("payroll.index"), { date: currentWeekDate })}
-                                className="text-xs h-8 text-sky-600 dark:text-sky-400 hover:bg-sky-50 dark:hover:bg-sky-950/40 cursor-pointer"
+                                onClick={() => router.get(route(payrollIndexRoute), { date: currentWeekDate })}
+                                className="col-span-2 text-xs h-8 text-sky-600 dark:text-sky-400 hover:bg-sky-50 dark:hover:bg-sky-950/40 cursor-pointer"
                             >
                                 Jump to Current Week
                             </Button>
                         )}
                     </div>
 
-                    <div className="flex items-center gap-2.5 flex-wrap sm:justify-end">
-                        <div className="flex items-center gap-1.5">
+                    <div className="flex w-full flex-col gap-2.5 sm:w-auto sm:flex-row sm:items-center sm:flex-wrap sm:justify-end">
+                        <div className="flex min-w-0 flex-col gap-1.5 sm:flex-row sm:items-center">
                             <span className="text-xs font-semibold text-neutral-500">Payroll Cycle:</span>
                             <select
                                 value={period?.id ?? ""}
                                 onChange={(e) => {
                                     const selId = e.target.value;
-                                    if (selId) router.get(route("payroll.index"), { period_id: selId });
+                                    if (selId) router.get(route(payrollIndexRoute), { period_id: selId });
                                 }}
-                                className="text-xs font-semibold bg-neutral-50 dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 rounded-lg px-2.5 py-1.5 text-neutral-800 dark:text-neutral-200 focus:outline-hidden cursor-pointer"
+                                className="w-full min-w-0 text-xs font-semibold bg-neutral-50 dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 rounded-lg px-2.5 py-1.5 text-neutral-800 dark:text-neutral-200 focus:outline-hidden cursor-pointer sm:w-auto"
                             >
                                 {allPeriods.map((p) => (
                                     <option key={p.id} value={p.id}>
@@ -269,20 +293,20 @@ export default function PayrollIndex({
                             </select>
                         </div>
 
-                        <div className="flex items-center gap-1.5 bg-neutral-50 dark:bg-neutral-800/60 px-2.5 py-1 rounded-lg border border-neutral-200/60 dark:border-neutral-700">
+                        <div className="flex min-w-0 items-center gap-1.5 bg-neutral-50 dark:bg-neutral-800/60 px-2.5 py-1 rounded-lg border border-neutral-200/60 dark:border-neutral-700">
                             <Calendar className="size-3.5 text-neutral-400" />
                             <span className="text-[11px] font-medium text-neutral-500">Jump to Date:</span>
                             <input
                                 type="date"
-                                onChange={(e) => e.target.value && router.get(route("payroll.index"), { date: e.target.value })}
-                                className="text-xs bg-transparent border-0 p-0 text-neutral-700 dark:text-neutral-200 focus:outline-hidden font-medium cursor-pointer"
+                                onChange={(e) => e.target.value && router.get(route(payrollIndexRoute), { date: e.target.value })}
+                                className="min-w-0 flex-1 text-xs bg-transparent border-0 p-0 text-neutral-700 dark:text-neutral-200 focus:outline-hidden font-medium cursor-pointer"
                             />
                         </div>
                     </div>
                 </div>
 
                 {/* KPI Cards */}
-                <div className="grid grid-cols-2 gap-3 lg:grid-cols-5">
+                <div className="print:hidden grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-5">
                     {[
                         { label: "Total Gross", value: `P${fmt(stats?.totalGross || 0)}`, sub: "Base + OT pay", icon: Banknote, color: "text-sky-600", from: "from-sky-50/40 dark:from-sky-950/20" },
                         { label: "Additions",   value: `+P${fmt(stats?.totalAdditions || 0)}`, sub: "Allowances / Others", icon: Plus, color: "text-emerald-600", from: "from-emerald-50/40 dark:from-emerald-950/20" },
@@ -304,10 +328,10 @@ export default function PayrollIndex({
                 </div>
 
                 {/* Payroll Register Table */}
-                <Card className="border-neutral-200/80 dark:border-neutral-800 overflow-hidden shadow-xs">
+                <Card className="payroll-print-area border-neutral-200/80 dark:border-neutral-800 overflow-hidden shadow-xs print:border-0 print:shadow-none">
                     <CardHeader className="border-b border-neutral-200/80 dark:border-neutral-800 bg-neutral-50/60 dark:bg-neutral-900/50 py-3 px-4">
                         <div className="text-center">
-                            <p className="text-[11px] font-semibold uppercase tracking-widest text-neutral-500">Sapang Dalaga Floating Playground</p>
+                            <p className="text-[11px] font-semibold uppercase tracking-widest text-neutral-500">{isSoakedPayroll ? 'SOAKED Restaurant' : 'Sapang Dalaga Floating Playground'}</p>
                             <p className="text-[10px] text-neutral-400">Caluya, Sapang Dalaga, Misamis Occidental</p>
                             <p className="text-xs font-bold uppercase tracking-wider text-neutral-700 dark:text-neutral-200 mt-0.5">
                                 Payroll Coverage ({formatDateLabel(period?.start_date)} to {formatDateLabel(period?.end_date)})
@@ -317,7 +341,7 @@ export default function PayrollIndex({
                     </CardHeader>
 
                     {/* Mobile View Switcher */}
-                    <div className="md:hidden flex items-center justify-between px-4 py-2.5 bg-neutral-100/80 dark:bg-neutral-800/80 border-b border-neutral-200 dark:border-neutral-700">
+                    <div className="print:hidden md:hidden flex items-center justify-between px-4 py-2.5 bg-neutral-100/80 dark:bg-neutral-800/80 border-b border-neutral-200 dark:border-neutral-700">
                         <span className="text-xs font-semibold text-neutral-600 dark:text-neutral-300">View Layout:</span>
                         <div className="flex items-center gap-1 bg-white dark:bg-neutral-900 p-0.5 rounded-lg border border-neutral-200 dark:border-neutral-700 shadow-xs">
                             <button
@@ -349,7 +373,7 @@ export default function PayrollIndex({
 
                     {/* Mobile Card View (Cards Layout) */}
                     {mobileView === "cards" && (
-                        <div className="md:hidden divide-y divide-neutral-200 dark:divide-neutral-800">
+                        <div className="print:hidden md:hidden divide-y divide-neutral-200 dark:divide-neutral-800">
                             {employees.map((emp) => {
                                 const line = linesMap[emp.id];
                                 const targetItem = line ?? { employee: emp, employee_id: emp.id };
@@ -401,10 +425,10 @@ export default function PayrollIndex({
                                                             <span className="text-[9px] font-bold text-neutral-500">{dayAbbr} {dayNum}</span>
                                                             <div className="flex flex-col gap-0.5 w-full mt-1">
                                                                 <div className={`text-[9px] font-bold text-center py-0.5 rounded ${amPresent ? "bg-emerald-500 text-white" : amAbsent ? "bg-rose-500 text-white" : "bg-neutral-100 dark:bg-neutral-700 text-neutral-300"}`}>
-                                                                    {amPresent ? "4" : amAbsent ? "0" : "-"}
+                                                                    {closedDates.includes(date) ? "Closed" : amPresent ? "4" : amAbsent ? "0" : "-"}
                                                                 </div>
                                                                 <div className={`text-[9px] font-bold text-center py-0.5 rounded ${pmPresent ? "bg-emerald-500 text-white" : pmAbsent ? "bg-rose-500 text-white" : "bg-neutral-100 dark:bg-neutral-700 text-neutral-300"}`}>
-                                                                    {pmPresent ? "4" : pmAbsent ? "0" : "-"}
+                                                                    {closedDates.includes(date) ? "Closed" : pmPresent ? "4" : pmAbsent ? "0" : "-"}
                                                                 </div>
                                                             </div>
                                                         </div>
@@ -467,7 +491,7 @@ export default function PayrollIndex({
                                         Grand Total ({employees.length} Staff)
                                     </span>
                                     <Badge className="bg-yellow-200/80 text-yellow-900 dark:bg-yellow-900 dark:text-yellow-100 font-mono">
-                                        {grandTotalDays.toFixed(0)} Days Worked
+                                        {grandTotalDays.toFixed(1)} Days Worked
                                     </Badge>
                                 </div>
                                 <div className="grid grid-cols-2 gap-2 text-xs mb-2">
@@ -491,11 +515,11 @@ export default function PayrollIndex({
                     )}
 
                     {/* Full Table View */}
-                    <div className={`overflow-x-auto ${mobileView === "cards" ? "hidden md:block" : "block"}`}>
+                    <div className={`overflow-x-auto print:block print:overflow-visible ${mobileView === "cards" ? "hidden md:block" : "block"}`}>
                         <div className="md:hidden text-[11px] text-neutral-500 text-center py-2 bg-sky-50 dark:bg-sky-950/30 border-b border-sky-100 dark:border-sky-900/40">
                             👉 Swipe horizontally to view full Mon–Sun hours & totals
                         </div>
-                        <table className="w-full text-left text-xs border-collapse">
+                        <table className="w-full text-left text-xs print:text-[8px] border-collapse">
                             <thead>
                                 <tr className="bg-neutral-100 dark:bg-neutral-900 border-b border-neutral-200 dark:border-neutral-700">
                                     <th rowSpan={2} className="sticky left-0 bg-neutral-100 dark:bg-neutral-900 z-20 shadow-[2px_0_5px_rgba(0,0,0,0.06)] border border-neutral-200 dark:border-neutral-700 px-2 py-2 text-center align-middle font-bold text-neutral-700 dark:text-neutral-200 whitespace-nowrap">LAST NAME</th>
@@ -554,8 +578,8 @@ export default function PayrollIndex({
                                                 const cell = empShifts[date];
                                                 return (
                                                     <React.Fragment key={`${emp.id}-${date}`}>
-                                                        <ShiftPill status={cell?.am_status} />
-                                                        <ShiftPill status={cell?.pm_status} />
+                                                        <ShiftPill status={cell?.am_status} isClosed={closedDates.includes(date)} />
+                                                        <ShiftPill status={cell?.pm_status} isClosed={closedDates.includes(date)} />
                                                     </React.Fragment>
                                                 );
                                             })}
@@ -563,7 +587,7 @@ export default function PayrollIndex({
                                                 {Number(line?.total_ot_hours ?? 0) > 0 ? `+${line.total_ot_hours}h` : "0"}
                                             </td>
                                             <td className="border border-neutral-200 dark:border-neutral-700 px-2 py-1.5 text-center font-bold text-neutral-800 dark:text-neutral-100">
-                                                {line ? Number(line.days_worked).toFixed(0) : 0}
+                                                {line ? Number(line.days_worked).toFixed(1) : 0}
                                             </td>
                                             <td className="border border-neutral-200 dark:border-neutral-700 px-2 py-1.5 text-right font-semibold text-neutral-800 dark:text-neutral-100 whitespace-nowrap">
                                                 {line ? `P ${fmt(Number(line.gross_pay))}` : "P -"}
@@ -602,7 +626,7 @@ export default function PayrollIndex({
                                     <td colSpan={4 + periodDates.length * 2 + 1} className="border border-neutral-200 dark:border-neutral-700 px-3 py-2 text-right text-xs font-bold uppercase tracking-wider text-neutral-600 dark:text-neutral-300">
                                         Grand Total
                                     </td>
-                                    <td className="border border-neutral-200 dark:border-neutral-700 px-2 py-2 text-center font-bold text-neutral-800 dark:text-neutral-100">{grandTotalDays.toFixed(0)}</td>
+                                    <td className="border border-neutral-200 dark:border-neutral-700 px-2 py-2 text-center font-bold text-neutral-800 dark:text-neutral-100">{grandTotalDays.toFixed(1)}</td>
                                     <td className="border border-neutral-200 dark:border-neutral-700 px-2 py-2 text-right font-bold text-neutral-800 dark:text-neutral-100 whitespace-nowrap">P {fmt(grandTotalGross)}</td>
                                     <td className="border border-neutral-200 dark:border-neutral-700 px-2 py-2 text-right font-bold text-emerald-600 whitespace-nowrap">
                                         {grandTotalAddition > 0 ? `+P${fmt(grandTotalAddition)}` : "-"}
@@ -620,7 +644,7 @@ export default function PayrollIndex({
                     </div>
 
                     {/* Signature Footer */}
-                    <div className="border-t border-neutral-200 dark:border-neutral-700 bg-neutral-50/50 dark:bg-neutral-900/30 px-6 py-6">
+                    <div className="border-t border-neutral-200 dark:border-neutral-700 bg-neutral-50/50 dark:bg-neutral-900/30 px-6 py-6 print:px-4 print:py-3">
                         <div className="grid grid-cols-3 gap-8 text-xs text-neutral-600 dark:text-neutral-300">
                             {[
                                 { role: "Prepared by:", name: period?.prepared_by_user?.name ?? "Anna Jane C. Dela Cerna", title: "Office Staff" },

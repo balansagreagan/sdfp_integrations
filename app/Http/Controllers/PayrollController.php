@@ -8,6 +8,7 @@ use App\Models\PayrollAddition;
 use App\Models\PayrollDeduction;
 use App\Models\PayrollLine;
 use App\Models\PayrollPeriod;
+use App\Models\OperatingDayClosure;
 use Carbon\Carbon;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -21,6 +22,7 @@ class PayrollController extends Controller
      */
     public function index(Request $request): Response
     {
+        $workArea = $request->routeIs('soaked-payroll.*') ? 'soaked' : 'park';
         $periodId = $request->query('period_id');
         $periodCode = $request->query('period');
         $dateParam = $request->query('date');
@@ -67,7 +69,10 @@ class PayrollController extends Controller
         $prevWeekDate = $startDate->copy()->subWeek()->toDateString();
         $nextWeekDate = $startDate->copy()->addWeek()->toDateString();
 
-        $employees = Employee::with('position')->where('status', 'active')->get();
+        $employees = Employee::with('position')->where('status', 'active')->where('work_area', $workArea)->get();
+        $employeeIds = $employees->pluck('id');
+        $currentPeriod->setRelation('payrollLines', $currentPeriod->payrollLines->whereIn('employee_id', $employeeIds)->values());
+        $currentPeriod->setRelation('attendanceShifts', $currentPeriod->attendanceShifts->whereIn('employee_id', $employeeIds)->values());
 
         // Calculate period totals
         $totalGross      = (float) $currentPeriod->payrollLines->sum('gross_pay');
@@ -96,6 +101,11 @@ class PayrollController extends Controller
             $cursor->addDay();
         }
 
+        $closedDates = OperatingDayClosure::whereBetween('work_date', [
+            $currentPeriod->start_date->toDateString(),
+            $currentPeriod->end_date->toDateString(),
+        ])->pluck('work_date')->map(fn ($date) => Carbon::parse($date)->toDateString())->values();
+
         return Inertia::render('payroll/index', [
             'period'        => $currentPeriod,
             'allPeriods'    => $allPeriods,
@@ -105,6 +115,7 @@ class PayrollController extends Controller
             'employees'     => $employees,
             'shiftsGrid'    => $shiftsGrid,
             'periodDates'   => $periodDates,
+            'closedDates'   => $closedDates,
             'stats'         => [
                 'totalGross'      => $totalGross,
                 'totalAdditions'  => $totalAdditions,
@@ -113,45 +124,8 @@ class PayrollController extends Controller
                 'totalOtHours'    => $totalOtHours,
             ],
             'isAdmin' => $request->user()->role === 'admin',
+            'workArea' => $workArea,
         ]);
-    }
-
-    /**
-     * Toggle shift attendance (AM/PM) or update OT hours.
-     */
-    public function toggleShift(Request $request): RedirectResponse
-    {
-        if ($request->user()->role !== 'admin') {
-            abort(403, 'Only administrators can manage employee attendance.');
-        }
-
-        $validated = $request->validate([
-            'payroll_period_id' => ['required', 'exists:payroll_periods,id'],
-            'employee_id' => ['required', 'exists:employees,id'],
-            'work_date' => ['required', 'date'],
-            'shift_slot' => ['required', 'string', 'in:am,pm'],
-            'status' => ['required', 'string', 'in:present,absent,day_off'],
-        ]);
-
-        $shift = AttendanceShift::firstOrNew([
-            'payroll_period_id' => $validated['payroll_period_id'],
-            'employee_id' => $validated['employee_id'],
-            'work_date' => $validated['work_date'],
-        ]);
-
-        if ($validated['shift_slot'] === 'am') {
-            $shift->am_status = $validated['status'];
-        } else {
-            $shift->pm_status = $validated['status'];
-        }
-
-        $shift->recorded_by = $request->user()->id;
-        $shift->save();
-
-        // Recompute payroll line for this employee
-        $this->recalculatePayrollLine($validated['payroll_period_id'], $validated['employee_id']);
-
-        return redirect()->back()->with('success', 'Attendance shift updated.');
     }
 
     /**

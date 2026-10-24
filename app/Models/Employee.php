@@ -21,6 +21,10 @@ class Employee extends Model
         'user_id',
         'status',
         'hired_date',
+        'work_area',
+        'soaked_assignment',
+        'scheduled_start_time',
+        'scheduled_end_time',
     ];
 
     protected function casts(): array
@@ -28,6 +32,8 @@ class Employee extends Model
         return [
             'daily_rate' => 'decimal:2',
             'hired_date' => 'date',
+            'scheduled_start_time' => 'datetime:H:i',
+            'scheduled_end_time' => 'datetime:H:i',
         ];
     }
 

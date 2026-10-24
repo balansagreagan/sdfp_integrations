@@ -9,7 +9,7 @@ import {
 } from "./ui/sidebar";
 
 type ShiftSlot = "am" | "pm";
-type ShiftStatus = "present" | "absent" | "day_off";
+type ShiftStatus = "present" | "absent" | "day_off" | "unrecorded";
 
 function ShiftButton({
     slot,

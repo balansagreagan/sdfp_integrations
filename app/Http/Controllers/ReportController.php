@@ -16,7 +16,9 @@ class ReportController extends Controller
     {
         // 1. Daily Sales & Wristband Report
         $salesReport = DB::table('view_daily_sales_and_wristbands')
-            ->orderBy('transaction_date', 'desc')
+            ->leftJoin('bookings as booking', 'booking.booking_reference', '=', 'view_daily_sales_and_wristbands.booking_reference')
+            ->select('view_daily_sales_and_wristbands.*', 'booking.pricing_status')
+            ->orderBy('view_daily_sales_and_wristbands.transaction_date', 'desc')
             ->limit(50)
             ->get();
 

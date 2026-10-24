@@ -1,3 +1,4 @@
+import { confirmAction } from '@/lib/notifications';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -13,7 +14,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import AppLayout from '@/layouts/app-layout';
 import { type BreadcrumbItem } from '@/types';
-import { Head, useForm } from '@inertiajs/react';
+import { Head, router, useForm } from '@inertiajs/react';
 import {
     AlertCircle,
     Bell,
@@ -70,9 +71,9 @@ export default function AnnouncementsIndex({ announcements = [], isAdmin = false
         });
     };
 
-    const handleDelete = (id: number) => {
-        if (!confirm('Are you sure you want to remove this announcement?')) return;
-        useForm().delete(route('announcement.destroy', id));
+    const handleDelete = async (id: number) => {
+        if (!await confirmAction('Are you sure you want to remove this announcement?', { title: 'Delete announcement?', confirmText: 'Delete', danger: true })) return;
+        router.delete(route('announcement.destroy', id), { preserveScroll: true });
     };
 
     return (

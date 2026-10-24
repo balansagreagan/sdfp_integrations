@@ -131,5 +131,15 @@ class InventorySeeder extends Seeder
                 $item
             );
         }
+
+        foreach ([
+            ['item_code' => 'SR-CHICKEN', 'name' => 'Marinated Chicken Portions', 'category' => 'perishables', 'quantity_in_stock' => 36, 'min_threshold' => 12, 'unit' => 'kg', 'unit_cost' => 185, 'condition_status' => 'good', 'notes' => 'Store chilled at 0–4°C'],
+            ['item_code' => 'SR-RICE', 'name' => 'Jasmine Rice', 'category' => 'ingredients', 'quantity_in_stock' => 50, 'min_threshold' => 15, 'unit' => 'kg', 'unit_cost' => 58, 'condition_status' => 'good', 'notes' => 'Dry-store shelf A2'],
+            ['item_code' => 'SR-WATER', 'name' => 'Bottled Water (500ml)', 'category' => 'beverages', 'quantity_in_stock' => 18, 'min_threshold' => 24, 'unit' => 'cases', 'unit_cost' => 140, 'condition_status' => 'good', 'notes' => 'Reorder before weekend'],
+            ['item_code' => 'SR-CUPS', 'name' => 'Cold Drink Cups with Lids', 'category' => 'packaging', 'quantity_in_stock' => 400, 'min_threshold' => 200, 'unit' => 'pcs', 'unit_cost' => 3.5, 'condition_status' => 'good', 'notes' => '16 oz'],
+            ['item_code' => 'SR-SANITIZER', 'name' => 'Food-Safe Surface Sanitizer', 'category' => 'cleaning', 'quantity_in_stock' => 6, 'min_threshold' => 4, 'unit' => 'bottles', 'unit_cost' => 145, 'condition_status' => 'good', 'notes' => 'Dilute according to label'],
+        ] as $item) {
+            InventoryItem::firstOrCreate(['item_code' => $item['item_code']], [...$item, 'inventory_location' => 'soaked_restaurant']);
+        }
     }
 }

@@ -8,6 +8,7 @@ use App\Models\User;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\DB;
 use Inertia\Inertia;
 use Inertia\Response;
 
@@ -20,8 +21,10 @@ class StaffController extends Controller
     {
         $this->ensureAdmin($request);
         $currentUser = $request->user();
+        $workArea = $request->routeIs('soaked-staff.*') ? 'soaked' : 'park';
 
         $employees = Employee::with(['position', 'user:id,name,email,role,status,last_login_at'])
+            ->where('work_area', $workArea)
             ->orderBy('id', 'asc')
             ->get();
 
@@ -44,6 +47,7 @@ class StaffController extends Controller
                 'avgDailyRate' => $avgDailyRate,
             ],
             'isAdmin' => $currentUser?->role === 'admin',
+            'workArea' => $workArea,
         ]);
     }
 
@@ -53,6 +57,7 @@ class StaffController extends Controller
     public function store(Request $request): RedirectResponse
     {
         $this->ensureAdmin($request);
+        $workArea = $request->routeIs('soaked-staff.*') ? 'soaked' : 'park';
 
         $validated = $request->validate([
             'first_name' => ['required', 'string', 'max:100'],
@@ -82,7 +87,7 @@ class StaffController extends Controller
         // Generate next employee code
         $lastEmployee = Employee::orderBy('id', 'desc')->first();
         $nextNum = $lastEmployee ? ($lastEmployee->id + 1) : 1;
-        $employeeCode = 'EMP-' . str_pad((string) $nextNum, 3, '0', STR_PAD_LEFT);
+        $employeeCode = ($workArea === 'soaked' ? 'SOK-' : 'EMP-') . str_pad((string) $nextNum, 3, '0', STR_PAD_LEFT);
 
         Employee::create([
             'employee_code' => $employeeCode,
@@ -94,6 +99,7 @@ class StaffController extends Controller
             'user_id' => $userId,
             'status' => 'active',
             'hired_date' => $validated['hired_date'] ?? now()->toDateString(),
+            'work_area' => $workArea,
         ]);
 
         return redirect()->back()->with('success', 'Staff member enrolled successfully.');
@@ -113,11 +119,36 @@ class StaffController extends Controller
             'position_id' => ['required', 'exists:positions,id'],
             'daily_rate' => ['required', 'numeric', 'min:100'],
             'status' => ['required', 'string', 'in:active,on_leave,terminated'],
+            'create_account' => ['nullable', 'boolean'],
+            'email' => ['nullable', 'email', 'max:255', 'required_if:create_account,true', 'unique:users,email'],
+            'password' => ['nullable', 'string', 'min:6', 'required_if:create_account,true'],
+            'role' => ['nullable', 'string', 'in:admin,staff'],
         ]);
 
-        $employee->update($validated);
+        DB::transaction(function () use ($employee, $validated) {
+            $employee->update([
+                'first_name' => $validated['first_name'],
+                'last_name' => $validated['last_name'],
+                'contact_number' => $validated['contact_number'] ?? null,
+                'position_id' => $validated['position_id'],
+                'daily_rate' => $validated['daily_rate'],
+                'status' => $validated['status'],
+            ]);
 
-        return redirect()->back()->with('success', 'Staff details updated.');
+            if (!empty($validated['create_account']) && !$employee->user_id) {
+                $user = User::create([
+                    'name' => "{$employee->first_name} {$employee->last_name}",
+                    'email' => $validated['email'],
+                    'password' => Hash::make($validated['password']),
+                    'role' => $validated['role'] ?? 'staff',
+                    'status' => 'active',
+                ]);
+
+                $employee->update(['user_id' => $user->id]);
+            }
+        });
+
+        return redirect()->back()->with('success', !empty($validated['create_account']) ? 'Staff details updated and web login granted.' : 'Staff details updated.');
     }
 
     /**
@@ -127,8 +158,21 @@ class StaffController extends Controller
     {
         $this->ensureAdmin(request());
 
-        $employee->update(['status' => 'terminated']);
-        return redirect()->back()->with('success', 'Staff member status set to terminated.');
+        if ($employee->attendanceShifts()->exists() || $employee->payrollLines()->exists()) {
+            return redirect()->back()->with('error', 'This employee has attendance or payroll history and cannot be deleted. Set the employee to terminated instead to preserve records.');
+        }
+
+        DB::transaction(function () use ($employee) {
+            $user = $employee->user;
+            $employee->delete();
+
+            // Keep the user record for audit purposes, but prevent further sign-in.
+            if ($user) {
+                $user->update(['status' => 'inactive']);
+            }
+        });
+
+        return redirect()->back()->with('success', 'Employee deleted and linked web login disabled.');
     }
 
     public function updatePosition(Request $request, Position $position): RedirectResponse

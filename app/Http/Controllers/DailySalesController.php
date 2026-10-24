@@ -2,7 +2,7 @@
 
 namespace App\Http\Controllers;
 
-use App\Models\Booking;
+use App\Models\BookingPayment;
 use App\Models\DailyCashReconciliation;
 use App\Models\Expense;
 use App\Models\ExpenseCategory;
@@ -22,11 +22,14 @@ class DailySalesController extends Controller
         $today = now()->toDateString();
 
         // 1. Incoming Sales Transactions for today
-        $salesTransactions = Booking::with(['guest', 'items.ticketType', 'recordedByUser:id,name'])
-            ->where('transaction_date', $today)
-            ->where('status', '!=', 'cancelled')
-            ->orderBy('id', 'desc')
-            ->get();
+        $salesTransactions = BookingPayment::with(['booking.guest', 'booking.items.ticketType', 'booking.payments', 'recordedByUser:id,name'])
+            ->whereDate('paid_on', $today)->orderByDesc('id')->get()->map(function ($payment) {
+                return array_merge($payment->booking->toArray(), [
+                    'id' => $payment->id, 'booking_total' => $payment->booking->gross_amount,
+                    'gross_amount' => $payment->amount, 'payment_method' => $payment->payment_method,
+                    'recorded_by_user' => $payment->recordedByUser,
+                ]);
+            });
 
         // 2. Disbursements / Expenses for today
         $expenses = Expense::with(['category', 'vendor', 'recordedByUser:id,name', 'approvedByUser:id,name'])
@@ -119,15 +122,13 @@ class DailySalesController extends Controller
 
         $today = now()->toDateString();
 
-        $cashSales = (float) Booking::where('transaction_date', $today)
+        $cashSales = (float) BookingPayment::whereDate('paid_on', $today)
             ->where('payment_method', 'cash')
-            ->where('status', '!=', 'cancelled')
-            ->sum('gross_amount');
+            ->sum('amount');
 
-        $digitalSales = (float) Booking::where('transaction_date', $today)
+        $digitalSales = (float) BookingPayment::whereDate('paid_on', $today)
             ->where('payment_method', '!=', 'cash')
-            ->where('status', '!=', 'cancelled')
-            ->sum('gross_amount');
+            ->sum('amount');
 
         $cashExpenses = (float) Expense::where('expense_date', $today)
             ->where('disbursement_method', 'cash_drawer')

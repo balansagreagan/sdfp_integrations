@@ -18,9 +18,10 @@ class DatabaseSeeder extends Seeder
             VendorAndExpenseCategorySeeder::class,
             BookingAndWristbandSeeder::class,
             ExpenseSeeder::class,
-            PayrollSeeder::class,
             DailyCashReconciliationSeeder::class,
             InventorySeeder::class,
+            SoakedInventorySeeder::class,
+            SoakedStaffSeeder::class,
             AnnouncementSeeder::class,
         ]);
     }

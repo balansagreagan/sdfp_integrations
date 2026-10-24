@@ -11,6 +11,11 @@ return Application::configure(basePath: dirname(__DIR__))
         web: __DIR__.'/../routes/web.php',
         commands: __DIR__.'/../routes/console.php',
         health: '/up',
+        then: function () {
+            // Avoid database-backed sessions and authentication for the uptime probe.
+            \Illuminate\Support\Facades\Route::get('/monitor-health', \App\Http\Controllers\MonitorHealthController::class)
+                ->name('monitor.health');
+        },
     )
     ->withMiddleware(function (Middleware $middleware) {
         $middleware->web(append: [
@@ -23,5 +28,7 @@ return Application::configure(basePath: dirname(__DIR__))
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions) {
-        //
+        $exceptions->report(function (\Throwable $exception) {
+            app(\App\Support\WebsiteErrorReporter::class)->report($exception);
+        });
     })->create();

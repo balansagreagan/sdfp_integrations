@@ -10,7 +10,19 @@ class TicketType extends Model
 {
     use HasFactory;
 
+    public const RETIRED_CHILD_RATE_CODES = ['KIDDIE-2HR'];
+
+    public const CATEGORIES = [
+        'admission' => 'Admission Tickets', 'ticket_bilao' => 'Ticket + Bilao',
+        'ticket_cajun' => 'Ticket + Cajun', 'ticket_stk' => 'Ticket + STK',
+        'water_fun' => 'Water Fun Package', 'day_tour' => 'Day Tour Package',
+        'overnight' => 'Overnight Package', 'two_days_one_night' => '2D 1N Package',
+    ];
+
     protected $fillable = [
+        'category', 'variant_name', 'pricing_basis', 'duration_label', 'description',
+        'min_pax', 'max_pax', 'included_pax',
+        'child_pricing', 'child_price',
         'code',
         'name',
         'duration_hours',
@@ -22,8 +34,10 @@ class TicketType extends Model
     {
         return [
             'price' => 'decimal:2',
+            'child_price' => 'decimal:2',
             'duration_hours' => 'integer',
             'is_active' => 'boolean',
+            'min_pax' => 'integer', 'max_pax' => 'integer', 'included_pax' => 'integer',
         ];
     }
 

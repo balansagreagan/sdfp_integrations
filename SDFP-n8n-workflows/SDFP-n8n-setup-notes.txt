@@ -1,0 +1,57 @@
+SDFP n8n website monitoring
+
+Files
+- SDFP-Website-Error-Monitoring.json: authenticated error webhook -> validation -> high/critical filter -> Telegram.
+- SDFP-Website-Uptime-Monitor.json: every 5 minutes -> HTTP health check -> Healthy? -> Telegram on failure.
+- The copies in sdfp_integrations/SDFP-n8n-workflows and the workspace-level SDFP-n8n-workflows folder are identical. Import one set only.
+
+1. Configure n8n
+- Import each JSON as a separate workflow. They are initially inactive.
+- On Webhook, create/select a Header Auth credential. Header name: X-SDFP-Monitor-Key. Value: a new random secret stored only in credentials and Laravel .env.
+- On both Telegram nodes, select your bot credential and replace REPLACE_WITH_SDFP_IT_CHAT_ID with your staff chat ID.
+- The bot must be allowed to send messages in that chat.
+- Set Check Laravel Health URL to the Laravel address reachable from the n8n host. The default is http://127.0.0.1:8000/monitor-health.
+- 127.0.0.1 works when both processes run directly on the same computer. For Docker or remote hosting, use the Laravel host address reachable from inside n8n. Use HTTPS when requests cross machines or public networks.
+- Activate/publish the error workflow to enable its production /webhook/sdfp-error-alert URL. The /webhook-test/ URL only works while listening for a test event.
+
+2. Configure Laravel
+Add these settings to sdfp_integrations/.env (also listed in .env.example):
+N8N_ERROR_MONITORING_ENABLED=true
+N8N_ERROR_WEBHOOK_URL=http://127.0.0.1:5678/webhook/sdfp-error-alert
+N8N_ERROR_HEADER_NAME=X-SDFP-Monitor-Key
+N8N_ERROR_HEADER_SECRET=<same secret as the n8n Header Auth credential>
+N8N_ERROR_SOURCE=sdfp-website
+Run php artisan config:clear after changing settings (or rebuild the production configuration cache).
+Monitoring is disabled by default. Missing URL/secret also prevents sending.
+Do not commit .env, bot tokens, or webhook secrets.
+
+3. Verify error alerts
+- Run php artisan monitor:test from sdfp_integrations. This intentionally sends one synthetic high-severity report.
+- Acceptance by n8n confirms webhook delivery only; verify the n8n execution and Telegram chat separately.
+- Validation requires nonempty string source/error_type, severity low/medium/high/critical, and an ISO-style occurred_at timestamp. Only high/critical reach Telegram.
+- The webhook responds immediately, so its HTTP success does not indicate successful validation or Telegram delivery.
+- Laravel automatically forwards exceptions that Laravel normally reports. Ordinary validation/authentication/404 exceptions remain subject to Laravel's normal reporting exclusions.
+- Reported PHP Error instances are critical; other reportable exceptions are high. For handled exceptions, call Laravel's report($exception) helper if they should enter the reporting pipeline.
+- Payload includes only source, severity, exception class basename, environment, route template (no actual IDs or query strings), and timestamp. No exception message, stack trace, request body, user details, or headers are forwarded.
+- Sending is synchronous, with a 1-second connection timeout and 2-second overall timeout, no retries or redirects. HTTP/connection failures return false without interrupting the original exception response or logging. Failed deliveries are not queued or retried in this first version.
+
+4. Verify uptime alerts
+- GET /monitor-health should return HTTP 200 with {"status":"ok"}, without authentication, session cookies, or caching.
+- It checks Laravel HTTP availability only; it does not probe the database, queue, or other dependencies. Maintenance mode returns an unhealthy response.
+- Manually execute the uptime workflow while Laravel runs: Healthy? true sends no alert.
+- Stop Laravel and execute again: connection failure must reach Healthy? false and Telegram Uptime Alert. Then restart Laravel.
+- HTTP failures, malformed JSON, timeouts, and unhealthy health results also follow the alert path. HTTP timeout is 10 seconds; On Error continues through the regular output.
+- Activate/publish the uptime workflow after testing. It sends an alert for every failed five-minute check; deduplication and recovery notices are not included in this version.
+
+5. Optional database history
+MySQL is intentionally omitted until a monitoring table and credentials exist.
+Insert logging after Validate Error Report true and before Serious Error? if all valid severities should be retained. Use a separate monitoring connection and store only the safe payload fields. Configure logging failure to continue so database downtime cannot suppress Telegram alerts.
+
+Local regression checks (no external requests or database required)
+cd sdfp_integrations
+php tests/smoke/website-monitoring.php
+node tests/smoke/n8n-monitoring.mjs
+
+References
+https://laravel.com/docs/12.x/errors
+https://docs.n8n.io/integrations/builtin/core-nodes/n8n-nodes-base.httprequest/

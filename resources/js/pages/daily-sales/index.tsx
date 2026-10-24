@@ -166,11 +166,11 @@ export default function DailySalesIndex({
                         </CardContent>
                     </Card>
 
-                    {/* Total Cash Sales Intake */}
+                    {/* Total Cash Payments Received */}
                     <Card className="border-neutral-200/70 bg-gradient-to-br from-emerald-50/40 to-white dark:border-neutral-800 dark:from-emerald-950/20 dark:to-neutral-900 shadow-xs">
                         <CardHeader className="flex flex-row items-center justify-between pb-2">
                             <CardTitle className="text-xs font-semibold uppercase tracking-wider text-neutral-500">
-                                Cash Sales Intake
+                                Cash Payments Received
                             </CardTitle>
                             <ArrowUpRight className="size-4.5 text-emerald-600 dark:text-emerald-400" />
                         </CardHeader>
@@ -232,7 +232,7 @@ export default function DailySalesIndex({
                                 : 'text-neutral-500 hover:text-neutral-700 dark:hover:text-neutral-300'
                         }`}
                     >
-                        Incoming Sales Transactions ({salesTransactions.length})
+                        Incoming Payments ({salesTransactions.length})
                         {activeTab === 'sales' && (
                             <span className="absolute bottom-0 left-0 right-0 h-0.5 bg-sky-600 dark:bg-sky-400 rounded-full" />
                         )}
@@ -317,7 +317,7 @@ export default function DailySalesIndex({
                                             <th className="px-6 py-3.5">Pass Details</th>
                                             <th className="px-6 py-3.5">Payment Method</th>
                                             <th className="px-6 py-3.5">Recorded By</th>
-                                            <th className="px-6 py-3.5 text-right">Amount</th>
+                                            <th className="px-6 py-3.5 text-right">Amount received</th>
                                         </tr>
                                     </thead>
                                     <tbody className="divide-y divide-neutral-200/70 dark:divide-neutral-800">
@@ -639,7 +639,7 @@ export default function DailySalesIndex({
                                 <span className="font-semibold">₱{Number(summary?.openingFloat || 1000).toFixed(2)}</span>
                             </div>
                             <div className="flex justify-between text-emerald-600">
-                                <span>+ Total Cash Sales:</span>
+                                <span>+ Cash Payments Received:</span>
                                 <span className="font-semibold">+₱{Number(summary?.cashSales || 0).toFixed(2)}</span>
                             </div>
                             <div className="flex justify-between text-rose-600">

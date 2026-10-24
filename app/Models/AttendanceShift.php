@@ -10,6 +10,11 @@ class AttendanceShift extends Model
 {
     use HasFactory;
 
+    protected $attributes = [
+        'am_status' => 'unrecorded',
+        'pm_status' => 'unrecorded',
+    ];
+
     protected $fillable = [
         'payroll_period_id',
         'employee_id',

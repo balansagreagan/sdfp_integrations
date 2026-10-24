@@ -1,5 +1,6 @@
 import '../css/app.css';
 
+import { NotificationCenter } from '@/components/notification-center';
 import { createInertiaApp } from '@inertiajs/react';
 import { resolvePageComponent } from 'laravel-vite-plugin/inertia-helpers';
 import { createRoot } from 'react-dom/client';
@@ -18,10 +19,21 @@ createInertiaApp({
     setup({ el, App, props }) {
         const root = createRoot(el);
 
-        root.render(<App {...props} />);
+        root.render(
+            <App {...props}>
+                {({ Component, key, props: pageProps }) => (
+                    <>
+                        <NotificationCenter />
+                        <Component key={key} {...pageProps} />
+                    </>
+                )}
+            </App>,
+        );
     },
     progress: {
-        color: '#4B5563',
+        color: '#0284c7',
+        delay: 0,
+        showSpinner: true,
     },
 });
 

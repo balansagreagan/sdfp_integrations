@@ -14,6 +14,7 @@ class Guest extends Model
         'full_name',
         'contact_number',
         'email',
+        'address',
         'notes',
     ];
 

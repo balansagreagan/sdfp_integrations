@@ -33,9 +33,7 @@ class AuthenticatedSessionController extends Controller
 
         $request->session()->regenerate();
 
-        $targetRoute = $request->user()?->user_type === 'lifeguard' ? 'attendance.index' : 'dashboard';
-
-        return redirect()->intended(route($targetRoute, absolute: false));
+        return redirect()->intended($request->user()->landingPath())->with('success', 'You are now logged in.');
     }
 
     /**
@@ -48,6 +46,6 @@ class AuthenticatedSessionController extends Controller
         $request->session()->invalidate();
         $request->session()->regenerateToken();
 
-        return redirect('/');
+        return redirect('/')->with('success', 'You have been logged out.');
     }
 }
