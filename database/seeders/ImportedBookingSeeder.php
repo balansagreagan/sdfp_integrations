@@ -36,7 +36,8 @@ class ImportedBookingSeeder extends Seeder
                     throw new RuntimeException('Review the existing reservation before seeding '.$entry['booking']['booking_reference']);
                 }
 
-                $booking = Booking::create([...$entry['booking'], 'guest_id' => $guest->id, 'recorded_by' => $admin->id]);
+                $offer = collect($entry['items'])->contains('ticket_code', 'FREE-BROCHURE') ? 'free_all_day' : null;
+                $booking = Booking::create([...$entry['booking'], 'brochure_offer' => $offer, 'guest_id' => $guest->id, 'recorded_by' => $admin->id]);
 
                 foreach ($entry['items'] as $item) {
                     $ticket = TicketType::where('code', $item['ticket_code'])->firstOrFail();

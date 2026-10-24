@@ -26,7 +26,7 @@ class SalesReportController extends Controller
         return response()->streamDownload(function () use ($report) {
             $stream = fopen('php://output', 'w');
             fwrite($stream, "\xEF\xBB\xBF");
-            fputcsv($stream, ['Date', 'Payments received (PHP)', 'Payment count', 'Confirmed charges including brochure sales (PHP)', 'Bookings', 'Guests', 'Pending quotes']);
+            fputcsv($stream, ['Date', 'Payments received (PHP)', 'Payment count', 'Confirmed booking charges (PHP)', 'Bookings', 'Guests', 'Pending quotes']);
             foreach ($report['days'] as $day) {
                 fputcsv($stream, array_values($day));
             }

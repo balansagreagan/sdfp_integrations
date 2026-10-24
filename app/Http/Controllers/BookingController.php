@@ -4,8 +4,6 @@ namespace App\Http\Controllers;
 
 use App\Models\AddOnItem;
 use App\Models\Booking;
-use App\Models\Brochure;
-use App\Models\BrochureCoupon;
 use App\Models\Guest;
 use App\Models\TicketType;
 use App\Models\WristbandAllocation;
@@ -27,7 +25,7 @@ class BookingController extends Controller
     public function index(Request $request): Response
     {
         $today = now()->toDateString();
-        $bookings = Booking::with(['guest', 'items.ticketType', 'addons', 'payments.recordedByUser:id,name', 'wristbandAllocations', 'recordedByUser:id,name', 'brochureCoupon.brochure'])
+        $bookings = Booking::with(['guest', 'items.ticketType', 'addons', 'payments.recordedByUser:id,name', 'wristbandAllocations', 'recordedByUser:id,name'])
             ->orderByDesc('id')->get();
         $todayBookings = $bookings->filter(fn ($booking) => $booking->transaction_date->toDateString() === $today);
 
@@ -37,7 +35,6 @@ class BookingController extends Controller
             'packageCategories' => TicketType::CATEGORIES,
             'addonItems' => AddOnItem::where('is_active', true)->orderBy('name')->get(),
             'childPolicies' => ChildPolicy::definitions(),
-            'brochures' => Brochure::with(['guest:id,full_name,contact_number', 'coupons'])->orderByDesc('id')->get(),
             'brochureOffers' => BrochureProgramme::OFFERS,
             'today' => $today,
             'stats' => [
@@ -80,8 +77,8 @@ class BookingController extends Controller
             'adult_count' => ['nullable', 'required_with:child_count', 'integer', 'min:0', 'max:10000'],
             'child_count' => ['nullable', 'required_with:adult_count', 'integer', 'min:0', 'max:10000'],
             'promotion_reference' => ['nullable', 'string', 'max:255'],
-            'brochure_coupon_id' => ['nullable', 'integer', 'exists:brochure_coupons,id'],
-            'coupon_presented' => ['sometimes', 'boolean'],
+            'brochure_offer' => ['nullable', Rule::in(array_keys(BrochureProgramme::OFFERS))],
+            'brochure_presented' => ['sometimes', 'boolean'],
             ...$this->addonRules(),
         ]);
 
@@ -92,9 +89,9 @@ class BookingController extends Controller
             }
             $pax = (int) $validated['quantity'];
             $programme = app(BrochureProgramme::class);
-            $coupon = empty($validated['brochure_coupon_id']) ? null : $programme->available((int) $validated['brochure_coupon_id'], $validated['playtime_date'], $validated['visit_end_date'], now()->toDateString());
-            if ($ticket->code === 'FREE-BROCHURE' && ! $coupon) {
-                throw ValidationException::withMessages(['brochure_coupon_id' => 'Select an unused free admission coupon from a registered brochure. Register an already-paid brochure without collecting ₱499 again.']);
+            $offer = $validated['brochure_offer'] ?? ($ticket->code === 'FREE-BROCHURE' ? 'free_all_day' : null);
+            if ($offer) {
+                $programme->validateVisit($validated['playtime_date'], $validated['visit_end_date'], now()->toDateString());
             }
             if ($pax < $ticket->min_pax || ($ticket->max_pax && $pax > $ticket->max_pax)) {
                 throw ValidationException::withMessages(['quantity' => 'The selected rate does not apply to this number of guests.']);
@@ -110,8 +107,8 @@ class BookingController extends Controller
                 throw ValidationException::withMessages(['allocated_time_slot_end' => 'Departure time must be after arrival for a same-day visit.']);
             }
             // Coupon transactions use the printed per-person offer, without stacking child discounts.
-            $adults = $coupon ? null : ($validated['adult_count'] ?? null);
-            $children = $coupon ? null : ($validated['child_count'] ?? null);
+            $adults = $offer ? null : ($validated['adult_count'] ?? null);
+            $children = $offer ? null : ($validated['child_count'] ?? null);
             if ($adults !== null && (int) $adults + (int) $children !== $pax) {
                 throw ValidationException::withMessages(['adult_count' => 'Adult and child counts must add up to the total number of guests.']);
             }
@@ -148,7 +145,7 @@ class BookingController extends Controller
             $addons = $this->prepareAddons($validated['addons'] ?? []);
             $package = array_sum(array_map(fn ($item) => Money::cents($item['line_total']), $items));
             $subtotal = $package + array_sum(array_map(fn ($item) => Money::cents($item['line_total']), $addons));
-            $discount = $coupon ? $programme->discount($coupon, $ticket, $pax, $items, $addons) : 0;
+            $discount = $offer ? $programme->discount($offer, $ticket, $pax, $items, $addons) : 0;
             $gross = $subtotal - $discount;
             $pending = collect([...$items, ...$addons])->contains(fn ($item) => $item['line_total'] === null);
             $paid = Money::cents($validated['payment_amount'] ?? 0);
@@ -165,7 +162,7 @@ class BookingController extends Controller
                 'playtime_date' => $validated['playtime_date'], 'visit_end_date' => $validated['visit_end_date'],
                 'allocated_time_slot_start' => $validated['allocated_time_slot_start'],
                 'allocated_time_slot_end' => $validated['allocated_time_slot_end'] ?? null,
-                'total_pax' => $pax, 'subtotal_amount' => Money::decimal($subtotal), 'brochure_coupon_id' => $coupon?->id,
+                'total_pax' => $pax, 'subtotal_amount' => Money::decimal($subtotal), 'brochure_offer' => $offer,
                 'adult_count' => $adults, 'child_count' => $children,
                 'child_ages' => $policy ? $ages : null, 'child_policy' => $policy,
                 'child_unit_price' => $adults !== null && $children > 0 && $ticket->pricing_basis === 'per_person' ? $childPrice : null,
@@ -179,8 +176,9 @@ class BookingController extends Controller
             ]);
             $booking->items()->createMany($items);
             $booking->addons()->createMany($addons);
-            if ($coupon) {
-                $programme->reserve($coupon, $booking, $request->boolean('coupon_presented'));
+            if ($offer && $booking->status === 'checked_in') {
+                $programme->confirmPresentation($request->boolean('brochure_presented'));
+                $booking->update(['brochure_presented_at' => now()]);
             }
             if ($paid > 0) {
                 $booking->payments()->create([
@@ -235,7 +233,10 @@ class BookingController extends Controller
         $validated = $request->validate(['status' => ['required', 'in:confirmed,checked_in,completed,cancelled,weather_hold']]);
         DB::transaction(function () use ($booking, $validated, $request) {
             $locked = Booking::lockForUpdate()->findOrFail($booking->id);
-            app(BrochureProgramme::class)->changeStatus($locked, $validated['status'], $request->boolean('coupon_presented'));
+            if ($locked->brochure_offer && ! $locked->brochure_presented_at && in_array($validated['status'], ['checked_in', 'completed'], true)) {
+                app(BrochureProgramme::class)->confirmPresentation($request->boolean('brochure_presented'));
+                $locked->brochure_presented_at = now();
+            }
             $locked->status = $validated['status'];
             $locked->save();
         });
@@ -321,9 +322,8 @@ class BookingController extends Controller
             $package = $items->isEmpty() ? Money::cents($locked->package_amount ?? $locked->subtotal_amount) : $items->sum(fn ($item) => Money::cents($item->line_total));
             $subtotal = $package + array_sum(array_map(fn ($row) => Money::cents($row['line_total']), $addons));
             $discount = Money::cents($locked->discount_amount);
-            if ($locked->brochure_coupon_id) {
-                $coupon = BrochureCoupon::lockForUpdate()->findOrFail($locked->brochure_coupon_id);
-                $discount = app(BrochureProgramme::class)->discount($coupon, $items->first()->ticketType, $locked->total_pax, $items->toArray(), $addons);
+            if ($locked->brochure_offer) {
+                $discount = app(BrochureProgramme::class)->discount($locked->brochure_offer, $items->first()->ticketType, $locked->total_pax, $items->toArray(), $addons);
             }
             $gross = $subtotal - $discount;
             if ($subtotal > 9999999999 || $gross < Money::cents($locked->amount_paid) || $gross < 0 || $gross > 9999999999) {

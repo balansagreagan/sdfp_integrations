@@ -8,13 +8,9 @@ $foodRow = function (string $code, $quantity = 1, $price = 'catalog', $included 
     return ['addon_item_id' => $item->id, 'name' => $item->name, 'quantity' => $quantity,
         'unit' => $item->unit, 'unit_price' => $price === 'catalog' ? $item->price : $price, 'is_included' => $included];
 };
-$nextFreeCoupon = function () use ($legacyGuest) {
-    $brochure = App\Models\Brochure::create(['card_number' => 'FOOD-TEST-'.App\Models\Brochure::count(), 'guest_id' => $legacyGuest->id, 'purchased_on' => '2026-10-01', 'expires_on' => '2028-08-31', 'source' => 'previous', 'price' => 499, 'amount_paid' => 0]);
-    return $brochure->coupons()->create(['type' => 'free_all_day', 'number' => 1])->id;
-};
 $mariaData = [...$base, 'guest_name' => 'Banawan, Maria Clarinda', 'contact_number' => '09129637159',
     'address' => 'Mobod, Oroquieta City', 'playtime_date' => '2026-10-18', 'visit_end_date' => '2026-10-18',
-    'brochure_coupon_id' => $nextFreeCoupon(),
+    'brochure_offer' => 'free_all_day',
     'allocated_time_slot_start' => '10:00', 'ticket_type_id' => $ticket('FREE-BROCHURE')->id, 'quantity' => 7,
     'promotion_reference' => 'FREE TICKETS BROCHURE',
     'addons' => [$foodRow('BILAO-BOODLE-1'), $foodRow('TUNA-KINILAW'), $foodRow('TUNA-PANGA')]];
@@ -60,7 +56,7 @@ $controller->store($request([...$shielaData, 'addons' => []]));
 check(App\Models\Booking::latest('id')->first()->gross_amount === '3496.00', 'Configured child price must be applied');
 $controller->store($request([...$shielaData, 'addons' => [], 'child_unit_price' => 0]));
 check(App\Models\Booking::latest('id')->first()->gross_amount === '3196.00' && App\Models\Booking::latest('id')->first()->pricing_status === 'complete', 'An explicitly free child must remain distinct from an unknown rate');
-$controller->store($request([...$mariaData, 'brochure_coupon_id' => $nextFreeCoupon(), 'addons' => [$foodRow('RICE', '2.50', '20.25'), $foodRow('PINEAPPLE-JUICE', 2, null, true)]]));
+$controller->store($request([...$mariaData, 'brochure_offer' => 'free_all_day', 'addons' => [$foodRow('RICE', '2.50', '20.25'), $foodRow('PINEAPPLE-JUICE', 2, null, true)]]));
 $fractional = App\Models\Booking::latest('id')->first();
 check($fractional->gross_amount === '50.63' && $fractional->pricing_status === 'complete', 'Food quantities must round to cents and included items must cost zero');
 $catalogController = app(App\Http\Controllers\AddOnItemController::class);
@@ -68,7 +64,7 @@ $catalogController->store($request(['code' => 'NEW-FOOD', 'name' => 'New Food', 
 $catalog = App\Models\AddOnItem::where('code', 'NEW-FOOD')->firstOrFail();
 check($catalog->price === null, 'Catalog must allow unpriced food');
 $catalogController->update($request(['name' => 'Updated Food', 'unit' => 'order', 'price' => 250, 'is_active' => false], 'PUT'), $catalog);
-fails(fn () => $controller->store($request([...$mariaData, 'brochure_coupon_id' => $nextFreeCoupon(), 'addons' => [$foodRow('NEW-FOOD')]])), 'addons.0.addon_item_id');
+fails(fn () => $controller->store($request([...$mariaData, 'brochure_offer' => 'free_all_day', 'addons' => [$foodRow('NEW-FOOD')]])), 'addons.0.addon_item_id');
 $original = App\Models\AddOnItem::where('code', 'BILAO-BOODLE-1')->firstOrFail();
 $original->update(['price' => 1500]);
 check($maria->addons()->where('addon_item_id', $original->id)->first()->unit_price === '1299.00', 'Catalog price edits must preserve sold food prices');

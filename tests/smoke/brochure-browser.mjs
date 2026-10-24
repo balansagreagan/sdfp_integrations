@@ -94,22 +94,10 @@ try {
     await click('a[href="/bookings"]');
     await until(`document.querySelector('h1')?.textContent === 'Bookings & Reservations'`, 'booking register');
 
-    await clickText('Sell / register brochure');
-    await until(`!!document.querySelector('#brochure_card_number')`, 'brochure sale form');
-    await fill('#brochure_card_number', 'BROWSER-001');
-    await fill('#brochure_guest_name', 'Browser Purchaser');
-    await fill('#brochure_contact_number', '09123456789');
-    await evaluate(`document.querySelector('#brochure_card_number').closest('form').requestSubmit()`);
-    await until(`!document.querySelector('#brochure_card_number')`, 'brochure sale saved');
-    await until(`document.querySelector('.app-notification')?.textContent.includes('499')`, 'brochure receipt notification');
-    await closeToast();
-    assert.equal(await evaluate(`document.querySelector('[data-testid="brochure-sales"]').textContent.includes('BROWSER-001')`), true);
+    assert.equal(await evaluate(`document.body.textContent.includes('Sell / register brochure')`), false, 'No sales or card-registration workflow');
     await clickText('New booking');
-    await until(`!!document.querySelector('#booking_brochure_card')`, 'brochure booking form');
-    const card = await evaluate(`Array.from(document.querySelector('#booking_brochure_card').options).find(option => option.textContent.includes('BROWSER-001')).value`);
-    await select('#booking_brochure_card', card);
-    const coupon = await evaluate(`Array.from(document.querySelector('#booking_brochure_coupon').options).find(option => option.textContent.includes('Free all-day')).value`);
-    await select('#booking_brochure_coupon', coupon);
+    await until(`!!document.querySelector('#booking_brochure_offer')`, 'brochure offer selector');
+    await select('#booking_brochure_offer', 'free_all_day');
     await fill('#guest_name', 'Brochure Browser Guest');
     await fill('#contact_number', '09999999999');
     await fill('#address', 'Dipolog');
@@ -125,12 +113,12 @@ try {
     await evaluate(`document.querySelector('#guest_name').closest('form').requestSubmit()`);
     await until(`!document.querySelector('#guest_name')`, 'free brochure reservation saved');
     await until(`document.body.textContent.includes('Brochure Browser Guest')`, 'reservation listed');
-    assert.equal(await evaluate(`document.querySelector('[data-testid="brochure-sales"]').textContent.includes('17 unused coupons')`), true, 'Exactly one coupon is reserved');
     await closeToast();
     await cdp('Page.navigate', { url: `${origin}/daily-sales` });
-    await until(`document.body.textContent.includes('Brochure BROWSER-001')`, 'brochure receipt in daily sales');
+    await until(`document.querySelector('h1')?.textContent.includes('Daily Sales')`, 'daily sales page');
+    assert.equal(await evaluate(`document.body.textContent.includes('Brochure BROWSER-001')`), false, 'No brochure receipt is created');
     assert.deepEqual(runtimeErrors, [], 'Brochure flow must have no browser exceptions');
-    console.log('Brochure browser: sale499, single coupon reservation,7 guests without age guessing, no second499 charge,390/1600px layouts and Daily Sales receipt passed');
+    console.log('Brochure browser: direct offer selection,7 guests without age guessing, no registration or brochure fee,390/1600px layouts and no external-sale receipt passed');
 } catch (error) {
     console.error(error.message);
     console.error(serverOutput.slice(-2500));

@@ -1,12 +1,10 @@
 <?php
 
 // Creates and removes its own isolated MySQL database. Never migrates the configured app database.
-use App\Models\Brochure;
 use App\Models\Guest;
 use Illuminate\Contracts\Console\Kernel;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Schema;
 
 require dirname(__DIR__, 2).'/vendor/autoload.php';
 $app = require dirname(__DIR__, 2).'/bootstrap/app.php';
@@ -39,19 +37,32 @@ try {
     if (DB::table('bookings')->count() !== 4 || DB::table('booking_payments')->count() !== 3) {
         throw new RuntimeException('Seeding repeated imported data.');
     }
-    $guest = Guest::create(['full_name' => 'Isolated brochure test', 'contact_number' => 'MYSQL-TEST']);
-    Brochure::create(['card_number' => 'MYSQL-TEST-001', 'guest_id' => $guest->id, 'purchased_on' => '2026-10-24', 'expires_on' => Brochure::EXPIRY, 'source' => 'sold', 'price' => Brochure::PRICE, 'amount_paid' => Brochure::PRICE, 'payment_method' => 'cash']);
-    $audit = DB::table('view_daily_net_cash_on_hand')->where('operating_date', '2026-10-24')->first();
-    if (! $audit || (float) $audit->total_cash_sales !== 499.0 || (float) $audit->total_gross_revenue !== 499.0) {
-        throw new RuntimeException('MySQL audit omitted the brochure sale.');
-    }
-    if (Artisan::call('migrate:rollback', ['--step' => 2, '--force' => true]) !== 0) {
+    $guest = Guest::create(['full_name' => 'Isolated historical test', 'contact_number' => 'MYSQL-TEST']);
+    $archiveId = DB::table('brochures')->insertGetId(['card_number' => 'MYSQL-TEST-001', 'guest_id' => $guest->id, 'purchased_on' => '2026-10-24', 'expires_on' => '2028-08-31', 'source' => 'sold', 'price' => '499.00', 'amount_paid' => '499.00', 'payment_method' => 'cash']);
+    // Exercise the upgrade from the earlier card-registration implementation.
+    if (Artisan::call('migrate:rollback', ['--step' => 1, '--force' => true]) !== 0) {
         throw new RuntimeException(Artisan::output());
     }
-    if (Schema::hasTable('brochures')) {
-        throw new RuntimeException('Brochure migration rollback failed.');
+    $booking = DB::table('bookings')->where('promotion_reference', 'BROCHURE')->first();
+    $couponId = DB::table('brochure_coupons')->insertGetId(['brochure_id' => $archiveId, 'type' => 'free_all_day', 'number' => 1, 'state' => 'used', 'booking_id' => $booking->id, 'redeemed_at' => '2026-10-24 09:00:00']);
+    DB::table('bookings')->where('id', $booking->id)->update(['brochure_coupon_id' => $couponId]);
+    if (Artisan::call('migrate', ['--force' => true]) !== 0) {
+        throw new RuntimeException(Artisan::output());
     }
-    echo "Isolated MySQL: all migrations, repeated default seed, brochure receipt audit and rollback passed.\n";
+    $upgraded = DB::table('bookings')->find($booking->id);
+    if ($upgraded->brochure_offer !== 'free_all_day' || ! $upgraded->brochure_presented_at) {
+        throw new RuntimeException('Historical offer information was not retained.');
+    }
+    $paidBooking = DB::table('bookings')->where('gross_amount', '>', 100)->first();
+    DB::table('booking_payments')->insert(['booking_id' => $paidBooking->id, 'paid_on' => '2026-10-24', 'amount' => '100.00', 'payment_method' => 'cash']);
+    $audit = DB::table('view_daily_net_cash_on_hand')->where('operating_date', '2026-10-24')->first();
+    if (! $audit || (float) $audit->total_cash_sales !== 100.0 || (float) $audit->total_gross_revenue !== 100.0) {
+        throw new RuntimeException('External brochure fee was included in park receipts.');
+    }
+    if (DB::table('brochures')->count() !== 1) {
+        throw new RuntimeException('Historical records were deleted.');
+    }
+    echo "Isolated MySQL: fresh setup, repeated seeding, legacy offer upgrade and external-fee exclusion passed.\n";
 } catch (Throwable $error) {
     fwrite(STDERR, $error->getMessage()."\n");
     $exitCode = 1;

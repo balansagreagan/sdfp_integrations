@@ -1,6 +1,5 @@
 import type { AddonDraft } from '@/components/booking-addon-fields';
-import type { BrochureOffers } from '@/components/brochure-sales';
-import type { AddOnItem, TicketType } from '@/types';
+import type { AddOnItem, BrochureOffers, TicketType } from '@/types';
 
 export function brochureDiscount(
     type: string | undefined,

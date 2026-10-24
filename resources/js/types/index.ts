@@ -140,6 +140,8 @@ export interface AddOnItem {
     brochure_scope?: 'other' | 'restaurant' | 'water_rides' | 'hotel' | 'drink_bundle';
 }
 
+export type BrochureOffers = Record<string, { label: string; scope: string; percent: number }>;
+
 export interface ChildPolicy {
     key: string;
     year: number;

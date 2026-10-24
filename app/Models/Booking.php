@@ -14,7 +14,7 @@ class Booking extends Model
 
     protected $fillable = [
         'booking_reference',
-        'brochure_coupon_id',
+        'brochure_offer', 'brochure_presented_at',
         'guest_id',
         'transaction_date',
         'playtime_date',
@@ -37,6 +37,7 @@ class Booking extends Model
     protected function casts(): array
     {
         return [
+            'brochure_presented_at' => 'datetime',
             'transaction_date' => 'date',
             'playtime_date' => 'date',
             'visit_end_date' => 'date',
@@ -55,11 +56,6 @@ class Booking extends Model
     public function payments(): HasMany
     {
         return $this->hasMany(BookingPayment::class)->orderBy('paid_on')->orderBy('id');
-    }
-
-    public function brochureCoupon(): BelongsTo
-    {
-        return $this->belongsTo(BrochureCoupon::class);
     }
 
     public function getAmountPaidAttribute(): string

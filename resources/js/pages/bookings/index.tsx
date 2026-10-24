@@ -1,5 +1,4 @@
 import BookingAddonFields, { addonTotal, type AddonDraft } from '@/components/booking-addon-fields';
-import BrochureSales, { type BrochureOffers, type BrochureRecord } from '@/components/brochure-sales';
 import ChildAgeFields, { childQuote } from '@/components/child-age-fields';
 import InputError from '@/components/input-error';
 import { Badge } from '@/components/ui/badge';
@@ -10,7 +9,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import AppLayout from '@/layouts/app-layout';
 import { brochureDiscount } from '@/lib/brochure-pricing';
-import type { AddOnItem, BreadcrumbItem, ChildPolicy, TicketType } from '@/types';
+import type { AddOnItem, BreadcrumbItem, BrochureOffers, ChildPolicy, TicketType } from '@/types';
 import { Head, router, useForm } from '@inertiajs/react';
 import { CalendarDays, CreditCard, Plus, Search } from 'lucide-react';
 import { useState, type FormEvent } from 'react';
@@ -55,8 +54,8 @@ interface Booking {
     child_policy: ChildPolicy | null;
     food_serving_time: string | null;
     promotion_reference: string | null;
-    brochure_coupon_id: number | null;
-    brochure_coupon: { id: number; type: string; number: number; state: string; brochure: { card_number: string } } | null;
+    brochure_offer: string | null;
+    brochure_presented_at: string | null;
     subtotal_amount: string;
     discount_amount: string;
     pricing_status: string;
@@ -98,7 +97,6 @@ interface Props {
     addonItems: AddOnItem[];
     childPolicies: Record<string, ChildPolicy>;
     today: string;
-    brochures: BrochureRecord[];
     brochureOffers: BrochureOffers;
     stats: {
         totalBookingsToday: number;
@@ -118,14 +116,12 @@ export default function BookingsIndex({
     childPolicies,
     today,
     stats,
-    brochures = [],
     brochureOffers = {},
 }: Props) {
     const [search, setSearch] = useState('');
     const [statusFilter, setStatusFilter] = useState('all');
     const [creating, setCreating] = useState(false);
     const [category, setCategory] = useState('admission');
-    const [brochureCardId, setBrochureCardId] = useState('');
     const [selectedId, setSelectedId] = useState<number | null>(null);
     const [editingFood, setEditingFood] = useState(false);
     const selected = bookings.find((booking) => booking.id === selectedId);
@@ -158,14 +154,14 @@ export default function BookingsIndex({
         promotion_reference: '',
         food_serving_time: '',
         addons: [] as AddonDraft[],
-        brochure_coupon_id: '',
-        coupon_presented: false as boolean,
+        brochure_offer: '',
+        brochure_presented: false as boolean,
     });
     const payment = useForm({ amount: '', paid_on: today, payment_method: 'cash', reference: '' });
     const food = useForm({ child_unit_price: '', child_ages: [] as string[], food_serving_time: '', addons: [] as AddonDraft[] });
     const rate = ticketTypes.find((ticket) => String(ticket.id) === form.data.ticket_type_id);
-    const brochure = brochures.find((item) => String(item.id) === brochureCardId);
-    const coupon = brochure?.coupons.find((item) => String(item.id) === form.data.brochure_coupon_id);
+    const offerType = form.data.brochure_offer || (rate?.code === 'FREE-BROCHURE' ? 'free_all_day' : '');
+    const coupon = offerType ? { type: offerType } : null;
     const usesCouponPricing = !!coupon || rate?.code === 'FREE-BROCHURE';
     const eligible = (ticket: TicketType, pax: number) =>
         ticket.category === category && pax >= ticket.min_pax && (!ticket.max_pax || pax <= ticket.max_pax);
@@ -257,6 +253,7 @@ export default function BookingsIndex({
         event.preventDefault();
         form.transform((data) => ({
             ...data,
+            brochure_offer: offerType,
             adult_count: usesCouponPricing ? null : data.adult_count,
             child_count: usesCouponPricing ? null : data.child_count,
             child_ages: usesCouponPricing ? [] : data.child_ages,
@@ -267,13 +264,10 @@ export default function BookingsIndex({
                 setCreating(false);
                 form.reset();
                 setCategory('admission');
-                setBrochureCardId('');
             },
         });
     };
-    const chooseCoupon = (id: string) => {
-        const selectedCoupon = brochure?.coupons.find((item) => String(item.id) === id);
-        const type = selectedCoupon?.type;
+    const chooseOffer = (type: string) => {
         const targetCategory =
             type === 'free_all_day' || type === 'bogo_all_day'
                 ? 'admission'
@@ -285,21 +279,23 @@ export default function BookingsIndex({
                       ? 'ticket_meal'
                       : category;
         const next =
-            type === 'free_all_day'
-                ? ticketTypes.find((item) => item.code === 'FREE-BROCHURE')
-                : type === 'bogo_all_day'
-                  ? ticketTypes.find((item) => item.code === 'ALL-DAY')
-                  : ticketTypes.find(
-                        (item) =>
-                            item.category === targetCategory &&
-                            form.data.quantity >= item.min_pax &&
-                            (!item.max_pax || form.data.quantity <= item.max_pax),
-                    );
+            !type && rate?.code === 'FREE-BROCHURE'
+                ? firstAdmission
+                : type === 'free_all_day'
+                  ? ticketTypes.find((item) => item.code === 'FREE-BROCHURE')
+                  : type === 'bogo_all_day'
+                    ? ticketTypes.find((item) => item.code === 'ALL-DAY')
+                    : ticketTypes.find(
+                          (item) =>
+                              item.category === targetCategory &&
+                              form.data.quantity >= item.min_pax &&
+                              (!item.max_pax || form.data.quantity <= item.max_pax),
+                      );
         setCategory(targetCategory);
         form.setData((data) => ({
             ...data,
-            brochure_coupon_id: id,
-            coupon_presented: false,
+            brochure_offer: type,
+            brochure_presented: false,
             ticket_type_id: next ? String(next.id) : data.ticket_type_id,
             visit_end_date:
                 targetCategory === 'two_days_one_night' && data.visit_end_date <= data.playtime_date
@@ -337,9 +333,9 @@ export default function BookingsIndex({
         });
     };
     const changeStatus = (booking: Booking, status: string) => {
-        const needsCoupon = !!booking.brochure_coupon && booking.brochure_coupon.state !== 'used' && ['checked_in', 'completed'].includes(status);
+        const needsCoupon = !!booking.brochure_offer && !booking.brochure_presented_at && ['checked_in', 'completed'].includes(status);
         if (needsCoupon && !window.confirm('Has the guest presented the physical brochure and this unused coupon? No brochure, no discount.')) return;
-        router.patch(route('bookings.status', booking.id), { status, coupon_presented: needsCoupon }, { preserveScroll: true });
+        router.patch(route('bookings.status', booking.id), { status, brochure_presented: needsCoupon }, { preserveScroll: true });
     };
     const dates = (booking: Booking) =>
         dateLabel(booking.playtime_date) +
@@ -373,7 +369,6 @@ export default function BookingsIndex({
                         <Plus className="size-4" /> New booking
                     </Button>
                 </div>
-                <BrochureSales brochures={brochures} offers={brochureOffers} today={today} />
                 <div className="grid min-w-0 grid-cols-2 gap-3 lg:grid-cols-4">
                     {[
                         ['Bookings recorded today', stats.totalBookingsToday],
@@ -582,65 +577,41 @@ export default function BookingsIndex({
                     </DialogHeader>
                     <form onSubmit={submit} className="space-y-5">
                         <section className="space-y-3 rounded-xl border p-4">
-                            <h3 className="font-semibold">Use a brochure coupon (optional)</h3>
+                            <h3 className="font-semibold">Brochure offer (optional)</h3>
                             <p className="text-muted-foreground text-xs">
-                                Already bought the ₱499 brochure? Select its card and an unused coupon. There is no new brochure charge. To sell or
-                                register a card, use “Sell / register brochure” on the booking page.
+                                Choose the offer the guest will use. Brochures are purchased outside this system; food and other charges are recorded
+                                separately.
                             </p>
                             <div className="space-y-1.5">
-                                <Label htmlFor="booking_brochure_card">Printed card number</Label>
+                                <Label htmlFor="booking_brochure_offer">Offer used</Label>
                                 <select
-                                    id="booking_brochure_card"
+                                    id="booking_brochure_offer"
                                     className={selectClass}
-                                    value={brochureCardId}
-                                    onChange={(event) => {
-                                        setBrochureCardId(event.target.value);
-                                        form.setData('brochure_coupon_id', '');
-                                        form.setData('coupon_presented', false);
-                                    }}
+                                    value={offerType}
+                                    onChange={(event) => chooseOffer(event.target.value)}
                                 >
-                                    <option value="">No brochure selected</option>
-                                    {brochures.map((item) => (
-                                        <option key={item.id} value={item.id} disabled={item.expires_on.slice(0, 10) < today}>
-                                            {item.card_number} — {item.guest.full_name}
-                                            {item.expires_on.slice(0, 10) < today ? ' (expired)' : ''}
+                                    <option value="">No brochure offer</option>
+                                    {Object.entries(brochureOffers).map(([key, offer]) => (
+                                        <option key={key} value={key}>
+                                            {offer.label}
                                         </option>
                                     ))}
                                 </select>
                             </div>
-                            {brochure && (
-                                <div className="space-y-1.5">
-                                    <Label htmlFor="booking_brochure_coupon">Coupon</Label>
-                                    <select
-                                        id="booking_brochure_coupon"
-                                        className={selectClass}
-                                        value={form.data.brochure_coupon_id}
-                                        onChange={(event) => chooseCoupon(event.target.value)}
-                                    >
-                                        <option value="">Choose an unused coupon</option>
-                                        {brochure.coupons.map((item) => (
-                                            <option key={item.id} value={item.id} disabled={item.state !== 'unused'}>
-                                                {brochureOffers[item.type]?.label} #{item.number} — {item.state}
-                                            </option>
-                                        ))}
-                                    </select>
-                                </div>
-                            )}
-                            <InputError message={form.errors.brochure_coupon_id} />
+                            <InputError message={form.errors.brochure_offer} />
                             {coupon && (
                                 <>
-                                    <p className="text-xs text-amber-700">
-                                        Book at least 2 days in advance. One coupon per transaction; cannot combine with other discounts or
-                                        promotions. Card is transferable. The free all-day coupon is one-time use for up to 7 people; unused places do
-                                        not carry over.
+                                    <p className="text-muted-foreground text-xs">
+                                        Present the physical coupon at the visit. Offers cannot be combined with other discounts. The free all-day
+                                        offer covers up to 7 guests in one visit.
                                     </p>
                                     <label className="flex items-center gap-2 text-sm">
                                         <input
                                             type="checkbox"
-                                            checked={form.data.coupon_presented}
-                                            onChange={(event) => form.setData('coupon_presented', event.target.checked)}
+                                            checked={form.data.brochure_presented}
+                                            onChange={(event) => form.setData('brochure_presented', event.target.checked)}
                                         />
-                                        Physical brochure and coupon presented (required when checking in)
+                                        Physical brochure coupon presented (required at check-in)
                                     </label>
                                 </>
                             )}
@@ -1254,17 +1225,13 @@ export default function BookingsIndex({
                                         </p>
                                     </div>
                                 ))}
-                                {selected.brochure_coupon && (
+                                {selected.brochure_offer && (
                                     <div className="rounded-lg border p-3 text-sm">
-                                        <p className="font-medium">Card {selected.brochure_coupon.brochure.card_number}</p>
-                                        <p>
-                                            {brochureOffers[selected.brochure_coupon.type]?.label} #{selected.brochure_coupon.number}
-                                        </p>
+                                        <p className="font-medium">Brochure offer: {brochureOffers[selected.brochure_offer]?.label}</p>
                                         <p className="text-muted-foreground">
-                                            {selected.status === 'cancelled' && selected.brochure_coupon.state !== 'used'
-                                                ? 'Reservation cancelled — unused coupon released'
-                                                : selected.brochure_coupon.state}{' '}
-                                            · Brochure purchase is recorded separately.
+                                            {selected.brochure_presented_at
+                                                ? 'Physical coupon verified at the visit.'
+                                                : 'Physical coupon to be verified at check-in.'}
                                         </p>
                                     </div>
                                 )}

@@ -3,7 +3,6 @@
 namespace App\Http\Controllers;
 
 use App\Models\BookingPayment;
-use App\Models\Brochure;
 use App\Models\DailyCashReconciliation;
 use App\Models\Expense;
 use App\Models\ExpenseCategory;
@@ -32,13 +31,6 @@ class DailySalesController extends Controller
                     'recorded_by_user' => $payment->recordedByUser,
                 ]);
             });
-
-        $salesTransactions = $salesTransactions->concat(Brochure::with(['guest', 'recordedByUser:id,name'])->where('source', 'sold')->whereDate('purchased_on', $today)->get()->map(fn ($brochure) => [
-            'id' => 'brochure-'.$brochure->id, 'booking_reference' => 'Brochure '.$brochure->card_number,
-            'guest' => $brochure->guest, 'gross_amount' => $brochure->amount_paid, 'booking_total' => $brochure->price,
-            'payment_method' => $brochure->payment_method, 'recorded_by_user' => $brochure->recordedByUser,
-            'total_pax' => 0, 'items' => [['ticket_type' => ['name' => 'Brochure sale — 18 coupons']]],
-        ]));
 
         // 2. Disbursements / Expenses for today
         $expenses = Expense::with(['category', 'vendor', 'recordedByUser:id,name', 'approvedByUser:id,name'])

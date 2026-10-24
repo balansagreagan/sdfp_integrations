@@ -4,7 +4,6 @@ use App\Http\Controllers\AddOnItemController;
 use App\Http\Controllers\AnnouncementController;
 use App\Http\Controllers\AttendanceController;
 use App\Http\Controllers\BookingController;
-use App\Http\Controllers\BrochureController;
 use App\Http\Controllers\DailySalesController;
 use App\Http\Controllers\InventoryController;
 use App\Http\Controllers\MaintenanceReportController;
@@ -88,7 +87,6 @@ Route::middleware(['auth'])->group(function () {
         // Bookings & Wristbands
         Route::get('bookings', [BookingController::class, 'index'])->name('bookings.index');
         Route::post('bookings', [BookingController::class, 'store'])->name('bookings.store');
-        Route::post('bookings/brochures', [BrochureController::class, 'store'])->name('brochures.store');
         Route::post('bookings/{booking}/payments', [BookingController::class, 'recordPayment'])->name('bookings.payments');
         Route::put('bookings/{booking}/addons', [BookingController::class, 'updateAddons'])->name('bookings.addons');
         Route::patch('bookings/{booking}/status', [BookingController::class, 'updateStatus'])->name('bookings.status');

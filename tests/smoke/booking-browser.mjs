@@ -189,10 +189,7 @@ try {
     await fill('#start_time', '10:00');
     const free = await evaluate(`Array.from(document.querySelector('#ticket_type_id').options).find(option => option.textContent.includes('Free Tickets Brochure')).value`);
     await select('#ticket_type_id', free);
-    const brochureCard = await evaluate(`Array.from(document.querySelector('#booking_brochure_card').options).find(option => option.textContent.includes('LEGACY-BROWSER')).value`);
-    await select('#booking_brochure_card', brochureCard);
-    const freeCoupon = await evaluate(`Array.from(document.querySelector('#booking_brochure_coupon').options).find(option => option.textContent.includes('Free all-day')).value`);
-    await select('#booking_brochure_coupon', freeCoupon);
+    await select('#booking_brochure_offer', 'free_all_day');
     await fill('#promotion_reference', 'FREE TICKETS BROCHURE');
     await addFood(0, 'Bilao Boodle 1');
     await addFood(1, 'Tuna Kinilaw');
@@ -266,7 +263,7 @@ try {
     await until(`document.querySelector('h1')?.textContent === 'Packages & Rates'`, 'food catalog page');
     assert.equal(await evaluate(`document.body.textContent.includes('SDFP Child Policy 2026') && document.body.textContent.includes('ages 5–8: 50%') && document.body.textContent.includes('ages 6–10: 50%')`), true, 'Packages must show the published child policies');
     await clickText('Food & add-ons');
-    await evaluate(`Array.from(document.querySelectorAll('button')).find(button => button.textContent.trim() === 'Edit food item' && button.parentElement.textContent.includes('Grilled Tuna Belly')).click()`);
+    await evaluate(`Array.from(document.querySelectorAll('button')).find(button => button.textContent.trim() === 'Edit food / service' && button.parentElement.textContent.includes('Grilled Tuna Belly')).click()`);
     await until(`!!document.querySelector('#food_price')`, 'food catalog price editor');
     await fill('#food_price', '123.45');
     await click('[role="dialog"] input[type="checkbox"]');

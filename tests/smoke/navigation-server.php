@@ -31,9 +31,6 @@ if (!Illuminate\Support\Facades\Schema::hasTable('users')) {
         (require $migration)->up();
     }
     App\Models\User::create(['name' => 'Navigation Tester', 'email' => 'navigation@example.test', 'password' => 'smoke-test-only', 'role' => 'admin']);
-    $brochureGuest = App\Models\Guest::create(['full_name' => 'Brochure Test Purchaser', 'contact_number' => 'BROWSER-CARD']);
-    $brochure = App\Models\Brochure::create(['card_number' => 'LEGACY-BROWSER', 'guest_id' => $brochureGuest->id, 'purchased_on' => '2026-10-01', 'expires_on' => '2028-08-31', 'source' => 'previous', 'price' => 499, 'amount_paid' => 0]);
-    $brochure->coupons()->create(['type' => 'free_all_day', 'number' => 1]);
     $position = App\Models\Position::create(['title' => 'Office Staff', 'base_daily_rate' => 400]);
     foreach (['park', 'soaked'] as $area) {
         App\Models\Employee::create(['employee_code' => $area, 'first_name' => 'Navigation', 'last_name' => ucfirst($area),

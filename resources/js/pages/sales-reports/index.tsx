@@ -86,7 +86,7 @@ export default function SalesReports({ filters, report }: Props) {
                 <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
                     {[
                         ['Payments received', money(report.totals.receipts), `${report.totals.payment_count} recorded payments`],
-                        ['Confirmed charges', money(report.totals.confirmed_charges), 'Booking charges and brochure sales during this period'],
+                        ['Confirmed charges', money(report.totals.confirmed_charges), 'Bookings entered during this period'],
                         ['Bookings / guests', `${report.totals.bookings} / ${report.totals.guests}`, 'Cancelled bookings excluded'],
                         ['Pending quotes', String(report.totals.pending_quotes), 'Unconfirmed prices excluded from charges'],
                     ].map(([title, value, note]) => (
