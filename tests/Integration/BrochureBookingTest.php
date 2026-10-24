@@ -33,7 +33,7 @@ class BrochureBookingTest extends TestCase
         $this->actingAs(User::factory()->create(['role' => 'admin']));
     }
 
-    private function payload(?string $offer = 'free_all_day', string $code = 'FREE-BROCHURE', int $pax = 7): array
+    private function payload(?string $offer = 'free_all_day', string $code = 'ALL-DAY', int $pax = 7): array
     {
         return [
             'guest_name' => 'Visiting guest', 'contact_number' => '09999999999', 'address' => 'Dipolog',
@@ -58,6 +58,9 @@ class BrochureBookingTest extends TestCase
         $this->assertSame('free_all_day', $booking->brochure_offer);
         $this->assertSame(7, $booking->total_pax);
         $this->assertNull($booking->adult_count);
+        $this->assertSame('1393.00', $booking->package_amount);
+        $this->assertSame('1393.00', $booking->discount_amount);
+        $this->assertSame('ALL-DAY', $booking->items()->firstOrFail()->ticketType->code);
         $this->assertSame('0.00', $booking->gross_amount);
         $this->assertDatabaseCount('brochures', 0);
         $this->assertDatabaseCount('brochure_coupons', 0);
@@ -73,7 +76,8 @@ class BrochureBookingTest extends TestCase
         $payload = [...$this->payload(), 'addons' => [$this->addon('restaurant', '100.00')], 'payment_amount' => '100.00', 'paid_on' => '2026-10-24', 'payment_method' => 'cash'];
         $this->post('/bookings', $payload)->assertSessionHasNoErrors();
         $booking = Booking::firstOrFail();
-        $this->assertSame('0.00', $booking->package_amount);
+        $this->assertSame('1393.00', $booking->package_amount);
+        $this->assertSame('1393.00', $booking->discount_amount);
         $this->assertSame('100.00', $booking->gross_amount);
         $this->assertSame('100.00', $booking->amount_paid);
         $this->assertSame(100.0, ReceiptLedger::total('2026-10-24'));
@@ -103,7 +107,23 @@ class BrochureBookingTest extends TestCase
         $this->post('/bookings', $this->payload('not-an-offer'))->assertSessionHasErrors('brochure_offer');
         $this->assertDatabaseCount('bookings', 0);
         $this->post('/bookings', $this->payload(null))->assertSessionHasNoErrors();
-        $this->assertSame('free_all_day', Booking::firstOrFail()->brochure_offer);
+        $regular = Booking::firstOrFail();
+        $this->assertNull($regular->brochure_offer);
+        $this->assertSame('1393.00', $regular->gross_amount);
+        $this->assertSame('0.00', $regular->discount_amount);
+    }
+
+    public function test_legacy_free_rate_is_hidden_and_cannot_create_new_bookings(): void
+    {
+        $legacy = TicketType::where('code', 'FREE-BROCHURE')->firstOrFail();
+        $this->assertFalse($legacy->is_active);
+        // Even a stale client or an accidentally reactivated record cannot use the old rate.
+        $legacy->update(['is_active' => true]);
+        $this->get('/bookings')->assertInertia(fn (Assert $page) => $page->where('ticketTypes', fn ($rates) => ! collect($rates)->contains('code', 'FREE-BROCHURE')));
+        $this->get('/packages')->assertInertia(fn (Assert $page) => $page->where('packages', fn ($rates) => ! collect($rates)->contains('code', 'FREE-BROCHURE')));
+        $this->post('/bookings', $this->payload(code: 'FREE-BROCHURE'))->assertSessionHasErrors('ticket_type_id');
+        $this->post('/bookings', $this->payload(code: 'REG-2HR'))->assertSessionHasErrors('brochure_offer');
+        $this->assertDatabaseCount('bookings', 0);
     }
 
     public function test_check_in_records_physical_coupon_verification(): void

@@ -37,8 +37,9 @@ class BrochureProgramme
         $offer = self::OFFERS[$type];
         $package = array_sum(array_map(fn ($item) => Money::cents($item['line_total']), $items));
         if ($type === 'free_all_day') {
-            if ($ticket->code !== 'FREE-BROCHURE' || $pax > 7) {
-                $this->invalid('The free all-day coupon covers up to 7 guests in one visit. Select Free Tickets Brochure.');
+            // The retired zero-priced rate is supported only when editing historical bookings.
+            if (! in_array($ticket->code, ['ALL-DAY', 'FREE-BROCHURE'], true) || $pax > 7) {
+                $this->invalid('The free all-day offer requires All Day Pass and covers up to 7 guests in one visit.');
             }
 
             return $package;

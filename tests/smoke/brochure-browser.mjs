@@ -98,6 +98,8 @@ try {
     await clickText('New booking');
     await until(`!!document.querySelector('#booking_brochure_offer')`, 'brochure offer selector');
     await select('#booking_brochure_offer', 'free_all_day');
+    assert.equal(await evaluate(`Array.from(document.querySelectorAll('select option')).some(option => option.textContent.includes('Free Tickets Brochure'))`), false, 'Retired brochure ticket must not be offered');
+    assert.equal(await evaluate(`Array.from(document.querySelectorAll('select')).some(select => select.selectedOptions[0]?.textContent.includes('All day'))`), true, 'Free offer uses the regular All Day Pass');
     await fill('#guest_name', 'Brochure Browser Guest');
     await fill('#contact_number', '09999999999');
     await fill('#address', 'Dipolog');
@@ -106,6 +108,11 @@ try {
     assert.equal(await evaluate(`document.querySelector('#quantity').readOnly`), false, 'Coupon guest count must be editable');
     assert.equal(await evaluate(`!!document.querySelector('#adult_count')`), false, 'No guessed adult count for brochure guests');
     assert.equal(await evaluate(`document.querySelector('#guest_name').closest('form').textContent.includes('Total booking: \u20b10.00')`), true, 'Free admission must not recharge499; actual form: ' + await evaluate(`document.querySelector('#guest_name').closest('form').textContent.slice(-1800)`));
+    assert.equal(await evaluate(`document.querySelector('#guest_name').closest('form').textContent.includes('\u20b11,393.00')`), true, 'Regular admission and full brochure discount must be visible');
+    await select('#booking_brochure_offer', '');
+    assert.equal(await evaluate(`document.querySelector('#guest_name').closest('form').textContent.includes('Total booking: \u20b1199.00')`), true, 'Removing the offer restores regular admission charges');
+    await select('#booking_brochure_offer', 'free_all_day');
+    await fill('#quantity', '7');
     for (const width of [390, 1600]) {
         await cdp('Emulation.setDeviceMetricsOverride', { width, height: 1000, deviceScaleFactor: 1, mobile: false });
         assert.equal(await evaluate(`(() => { const dialog = document.querySelector('[role="dialog"]'); const r = dialog.getBoundingClientRect(); return r.left >= 0 && r.right <= innerWidth && dialog.scrollWidth <= dialog.clientWidth + 1; })()`), true, 'Brochure form must fit at' + width);

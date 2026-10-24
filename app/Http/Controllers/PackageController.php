@@ -2,10 +2,10 @@
 
 namespace App\Http\Controllers;
 
-use App\Models\BookingItem;
 use App\Models\AddOnItem;
-use App\Support\ChildPolicy;
+use App\Models\BookingItem;
 use App\Models\TicketType;
+use App\Support\ChildPolicy;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
@@ -17,7 +17,8 @@ class PackageController extends Controller
 {
     public function index(Request $request): Response
     {
-        $packages = TicketType::withCount('bookingItems')->whereNotIn('code', TicketType::RETIRED_CHILD_RATE_CODES)->orderBy('category')->orderBy('price')->get();
+        $packages = TicketType::withCount('bookingItems')->whereNotIn('code', TicketType::RETIRED_RATE_CODES)->orderBy('category')->orderBy('price')->get();
+
         return Inertia::render('packages/index', [
             'packages' => $packages, 'categories' => TicketType::CATEGORIES,
             'addonItems' => AddOnItem::orderBy('name')->get(),
@@ -31,8 +32,13 @@ class PackageController extends Controller
 
     private function validateRate(Request $request, bool $creating): array
     {
-        if ($creating) $request->merge(['code' => strtoupper(trim((string) $request->input('code')))]);
-        if (!$request->has('child_pricing')) $request->merge(['child_pricing' => $request->input('pricing_basis') === 'per_person' && isset(ChildPolicy::definitions()[$request->input('category')]) ? 'age_based' : 'confirm']);
+        if ($creating) {
+            $request->merge(['code' => strtoupper(trim((string) $request->input('code')))]);
+        }
+        if (! $request->has('child_pricing')) {
+            $request->merge(['child_pricing' => $request->input('pricing_basis') === 'per_person' && isset(ChildPolicy::definitions()[$request->input('category')]) ? 'age_based' : 'confirm']);
+        }
+
         return $request->validate([
             ...($creating ? ['code' => ['required', 'string', 'max:30', 'unique:ticket_types,code']] : []),
             'name' => ['required', 'string', 'max:100'],
@@ -55,15 +61,17 @@ class PackageController extends Controller
     public function store(Request $request): RedirectResponse
     {
         TicketType::create($this->validateRate($request, true));
+
         return back()->with('success', 'Package rate or variant created. Active rates are now available in bookings.');
     }
 
     public function update(Request $request, TicketType $package): RedirectResponse
     {
-        if (in_array($package->code, TicketType::RETIRED_CHILD_RATE_CODES, true) && $request->boolean('is_active')) {
-            throw ValidationException::withMessages(['is_active' => 'This old child ticket has been replaced by automatic age-based pricing on regular tickets.']);
+        if (in_array($package->code, TicketType::RETIRED_RATE_CODES, true) && $request->boolean('is_active')) {
+            throw ValidationException::withMessages(['is_active' => 'This retired rate cannot be activated. Use regular tickets and the applicable guest policy or brochure offer.']);
         }
         $package->update($this->validateRate($request, false));
+
         return back()->with('success', 'Package rate updated. Existing booking prices have been kept.');
     }
 }

@@ -11,13 +11,13 @@ $foodRow = function (string $code, $quantity = 1, $price = 'catalog', $included 
 $mariaData = [...$base, 'guest_name' => 'Banawan, Maria Clarinda', 'contact_number' => '09129637159',
     'address' => 'Mobod, Oroquieta City', 'playtime_date' => '2026-10-18', 'visit_end_date' => '2026-10-18',
     'brochure_offer' => 'free_all_day',
-    'allocated_time_slot_start' => '10:00', 'ticket_type_id' => $ticket('FREE-BROCHURE')->id, 'quantity' => 7,
+    'allocated_time_slot_start' => '10:00', 'ticket_type_id' => $ticket('ALL-DAY')->id, 'quantity' => 7,
     'promotion_reference' => 'FREE TICKETS BROCHURE',
     'addons' => [$foodRow('BILAO-BOODLE-1'), $foodRow('TUNA-KINILAW'), $foodRow('TUNA-PANGA')]];
 $controller->store($request($mariaData));
 $maria = App\Models\Booking::latest('id')->firstOrFail();
 check($maria->gross_amount === '1967.00' && $maria->balance_due === '1967.00', 'Free admission must still charge 1967 for food');
-check($maria->package_amount === '0.00' && $maria->addons()->count() === 3 && $maria->payments()->count() === 0, 'Free tickets are explicit, food and receipts separate');
+check($maria->package_amount === '1393.00' && $maria->discount_amount === '1393.00' && $maria->addons()->count() === 3 && $maria->payments()->count() === 0, 'Free tickets are explicit, food and receipts separate');
 check($maria->adult_count === null && $maria->child_count === null, 'Unknown adult/child counts must not be invented');
 $shielaData = [...$base, 'guest_name' => 'Shiela Marie Gadiano', 'contact_number' => '09067143929', 'address' => 'Pagadian City',
     'playtime_date' => '2026-10-10', 'visit_end_date' => '2026-10-10', 'allocated_time_slot_start' => '08:00',

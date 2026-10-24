@@ -31,7 +31,7 @@ class BookingController extends Controller
 
         return Inertia::render('bookings/index', [
             'bookings' => $bookings,
-            'ticketTypes' => TicketType::where('is_active', true)->whereNotNull('price')->whereNotIn('code', TicketType::RETIRED_CHILD_RATE_CODES)->orderBy('price')->get(),
+            'ticketTypes' => TicketType::where('is_active', true)->whereNotNull('price')->whereNotIn('code', TicketType::RETIRED_RATE_CODES)->orderBy('price')->get(),
             'packageCategories' => TicketType::CATEGORIES,
             'addonItems' => AddOnItem::where('is_active', true)->orderBy('name')->get(),
             'childPolicies' => ChildPolicy::definitions(),
@@ -84,12 +84,12 @@ class BookingController extends Controller
 
         $booking = DB::transaction(function () use ($request, $validated, $assignBands) {
             $ticket = TicketType::lockForUpdate()->findOrFail($validated['ticket_type_id']);
-            if (! $ticket->is_active || $ticket->price === null || in_array($ticket->code, TicketType::RETIRED_CHILD_RATE_CODES, true)) {
+            if (! $ticket->is_active || $ticket->price === null || in_array($ticket->code, TicketType::RETIRED_RATE_CODES, true)) {
                 throw ValidationException::withMessages(['ticket_type_id' => 'This rate is not available for booking. Select an active, priced rate.']);
             }
             $pax = (int) $validated['quantity'];
             $programme = app(BrochureProgramme::class);
-            $offer = $validated['brochure_offer'] ?? ($ticket->code === 'FREE-BROCHURE' ? 'free_all_day' : null);
+            $offer = $validated['brochure_offer'] ?? null;
             if ($offer) {
                 $programme->validateVisit($validated['playtime_date'], $validated['visit_end_date'], now()->toDateString());
             }

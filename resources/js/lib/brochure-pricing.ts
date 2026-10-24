@@ -12,7 +12,7 @@ export function brochureDiscount(
 ): number {
     if (!type || !offers[type] || !rate) return 0;
     const offer = offers[type];
-    if (type === 'free_all_day') return rate.code === 'FREE-BROCHURE' ? packageTotal : 0;
+    if (type === 'free_all_day') return rate.code === 'ALL-DAY' && pax <= 7 ? packageTotal : 0;
     if (type === 'bogo_all_day') return rate.code === 'ALL-DAY' && pax >= 2 ? Number(rate.price) : 0;
     if (['day_tour', 'two_days_one_night', 'ticket_meal'].includes(offer.scope))
         return rate.category === offer.scope ? Math.round((Math.round(packageTotal * 100) * offer.percent) / 100) / 100 : 0;

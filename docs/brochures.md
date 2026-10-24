@@ -12,7 +12,7 @@ Brochures are purchased **outside this system**. The app does not sell brochures
 
 No card registration or proof of the external PHP 499 payment is required by the app. Staff check the physical coupon's validity, prior use and any card reference outside the system. Use the optional **Promotion / brochure reference** field when a reference is available.
 
-For Esterlodie's example: select **Free all-day play - up to 7 persons**, enter **7 guests**, and add **Food & others upon arrival** as a custom add-on with a blank price. Admission is zero; food and the final balance remain pending. No PHP 499 charge or brochure-sale receipt is created. This reservation is already in the hosting seed data, so avoid creating it again.
+For Esterlodie's example: select **Free all-day play - up to 7 persons**, enter **7 guests**, and add **Food & others upon arrival** as a custom add-on with a blank price. The ticket stays **All Day Pass**: 7 people at PHP 199 is PHP 1,393, offset by a PHP 1,393 brochure discount. Admission payable is zero; food and the final balance remain pending. There is no separate free brochure ticket in the rate list. No PHP 499 charge or brochure-sale receipt is created. This reservation is already in the hosting seed data, so avoid creating it again.
 
 ## Offers
 

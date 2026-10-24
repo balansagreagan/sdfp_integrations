@@ -160,9 +160,9 @@ export default function BookingsIndex({
     const payment = useForm({ amount: '', paid_on: today, payment_method: 'cash', reference: '' });
     const food = useForm({ child_unit_price: '', child_ages: [] as string[], food_serving_time: '', addons: [] as AddonDraft[] });
     const rate = ticketTypes.find((ticket) => String(ticket.id) === form.data.ticket_type_id);
-    const offerType = form.data.brochure_offer || (rate?.code === 'FREE-BROCHURE' ? 'free_all_day' : '');
+    const offerType = form.data.brochure_offer;
     const coupon = offerType ? { type: offerType } : null;
-    const usesCouponPricing = !!coupon || rate?.code === 'FREE-BROCHURE';
+    const usesCouponPricing = !!coupon;
     const eligible = (ticket: TicketType, pax: number) =>
         ticket.category === category && pax >= ticket.min_pax && (!ticket.max_pax || pax <= ticket.max_pax);
     const availableRates = ticketTypes.filter((ticket) => eligible(ticket, form.data.quantity));
@@ -279,23 +279,22 @@ export default function BookingsIndex({
                       ? 'ticket_meal'
                       : category;
         const next =
-            !type && rate?.code === 'FREE-BROCHURE'
-                ? firstAdmission
-                : type === 'free_all_day'
-                  ? ticketTypes.find((item) => item.code === 'FREE-BROCHURE')
-                  : type === 'bogo_all_day'
-                    ? ticketTypes.find((item) => item.code === 'ALL-DAY')
-                    : ticketTypes.find(
-                          (item) =>
-                              item.category === targetCategory &&
-                              form.data.quantity >= item.min_pax &&
-                              (!item.max_pax || form.data.quantity <= item.max_pax),
-                      );
+            type === 'free_all_day' || type === 'bogo_all_day'
+                ? ticketTypes.find((item) => item.code === 'ALL-DAY')
+                : !type
+                  ? rate
+                  : ticketTypes.find(
+                        (item) =>
+                            item.category === targetCategory &&
+                            form.data.quantity >= item.min_pax &&
+                            (!item.max_pax || form.data.quantity <= item.max_pax),
+                    );
         setCategory(targetCategory);
         form.setData((data) => ({
             ...data,
             brochure_offer: type,
             brochure_presented: false,
+            quantity: !type && usesCouponPricing ? Number(data.adult_count) + Number(data.child_count) : data.quantity,
             ticket_type_id: next ? String(next.id) : data.ticket_type_id,
             visit_end_date:
                 targetCategory === 'two_days_one_night' && data.visit_end_date <= data.playtime_date

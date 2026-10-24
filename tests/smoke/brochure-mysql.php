@@ -37,10 +37,13 @@ try {
     if (DB::table('bookings')->count() !== 4 || DB::table('booking_payments')->count() !== 3) {
         throw new RuntimeException('Seeding repeated imported data.');
     }
+    if ((bool) DB::table('ticket_types')->where('code', 'FREE-BROCHURE')->value('is_active')) {
+        throw new RuntimeException('The retired brochure ticket was reactivated by seeding.');
+    }
     $guest = Guest::create(['full_name' => 'Isolated historical test', 'contact_number' => 'MYSQL-TEST']);
     $archiveId = DB::table('brochures')->insertGetId(['card_number' => 'MYSQL-TEST-001', 'guest_id' => $guest->id, 'purchased_on' => '2026-10-24', 'expires_on' => '2028-08-31', 'source' => 'sold', 'price' => '499.00', 'amount_paid' => '499.00', 'payment_method' => 'cash']);
     // Exercise the upgrade from the earlier card-registration implementation.
-    if (Artisan::call('migrate:rollback', ['--step' => 1, '--force' => true]) !== 0) {
+    if (Artisan::call('migrate:rollback', ['--step' => 2, '--force' => true]) !== 0) {
         throw new RuntimeException(Artisan::output());
     }
     $booking = DB::table('bookings')->where('promotion_reference', 'BROCHURE')->first();
